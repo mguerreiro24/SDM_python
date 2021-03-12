@@ -125,10 +125,10 @@ ensures:
     b2['grid'] = abs(b2['ygrid'][0]-b2['ygrid'][1])
     
     b2['O2'] = fh.variables['o2'][:].data
-    b2['pH'] = fh.variables['ph'][:].data
-    b2['chla'] = fh.variables['chl'][:].data
-    b2['netPP'] = fh.variables['nppv'][:].data
-    b2['phytoplankyonC'] = fh.variables['phyc'][:].data
+#    b2['pH'] = fh.variables['ph'][:].data
+#    b2['chla'] = fh.variables['chl'][:].data
+#    b2['netPP'] = fh.variables['nppv'][:].data
+#    b2['phytoplankyonC'] = fh.variables['phyc'][:].data
     fh.close()
     return b2
 
