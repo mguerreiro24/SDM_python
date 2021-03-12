@@ -204,6 +204,7 @@ ensures:
         
         for key in data[i][0]:
             if key not in ['grid','depth','xgrid','ygrid']:
+                #insert sorted by time
                 out[i][key] = np.concatenate([data[i][jj][key] for jj in range(len(data[i]))])
         data[i] = 0
     return out
