@@ -264,13 +264,22 @@ ensures:
     return out
 
 
-def read_sql_georeferenced_observations(db_path = 'D:\\PhD\\articles\\article DB',db = 'samples.db'):
+def read_sql_georeferenced_observations(db_path = 'D:\\PhD\\articles\\article DB',
+                                        db = 'samples.db',
+                                        test_Lat_range='14,40',
+                                        test_Lon_range='-35,-9'):
     """from SQL database file, collect georeferenced entries
 requires:
-    db_path    path of folder where db file is
-               default: 'D:\\PhD\\articles\\article DB'
-    db         db file name
-               default: 'samples.db'
+    db_path           path of folder where db file is
+                        default: 'D:\\PhD\\articles\\article DB'
+    db                db file name
+                        default: 'samples.db'
+    test_Lat_range    [str] csv of min and max latitude for data
+                      that will be used for testing and mapping
+                        default: '14,40'
+    test_Lon_range    [str] csv of min and max longitude for data
+                      that will be used for testing and mapping
+                        default: '-35,-9'
 ensures: Numpy array with 'species' as 'genus_species',
     'dd long' float(),
     'dd lat' float() and 'depth' as int()
@@ -280,14 +289,43 @@ ensures: Numpy array with 'species' as 'genus_species',
     cursor.execute('''
 SELECT DISTINCT genus,sp,Longitude,Latitude,depth_min,depth_Max
 FROM sample inner join species using (id_s) inner join net using (id_n,id_st,id_c) inner join station using (id_st,id_c) inner join cruise using (id_c)
-WHERE id_c=1 AND Longitude<=-9 AND Latitude<=40 AND Longitude>=-35 AND Latitude>=14
+WHERE id_c=1
 ORDER BY genus,sp''')
     Lobs = cursor.fetchall()
     cursor.close()
     conn.close()
     Lobs = [[*i[:-2],round((i[-2]+i[-1])/2)] for i in [i for i in Lobs if type(i[-2])==int and type(i[-1])==int]]
-    print('Filtering: Longitude<=-9 AND Latitude<=40 AND Longitude>=-35 AND Latitude>=14')
+    latm,latM = [float(t) for t in test_Lat_range.split(',')]
+    lonm,lonM = [float(t) for t in test_Lon_range.split(',')]
     return read_georeferenced_observations(Lobs)
+
+
+#transported from SDM.py
+def create_species_bunch(species_name, train, test, coverages, xgrid, ygrid, zgrid):
+    """Create a bunch with information about a particular organism
+
+    This will use the test/train record arrays to extract the
+    data specific to the given species name.
+    """
+    bunch = Bunch(name=' '.join(species_name.split("_")))
+    #species_name = species_name.encode('ascii')
+    points = dict(test=test, train=train)
+
+    for label, pts in points.items():
+        # choose points associated with the desired species
+        pts = pts[pts['species'] == species_name]
+        bunch['pts_%s' % label] = pts
+
+        # determine coverage values for each of the training & testing points
+        ix = np.searchsorted(xgrid, pts['dd long'])
+        iy = np.searchsorted(ygrid, pts['dd lat'])
+        iz = np.searchsorted(zgrid, pts['m depth'])
+        bunch['cov_%s' % label] = coverages[:, iz, iy, ix].T#-iy?
+    return bunch
+
+
+def data_train(data,points):
+def data_test(data,points):
 
 
 #---------------------------------
@@ -382,12 +420,12 @@ ensures:     temperature in degrees Kelvin
 
 
 def createData(step_analysis=0,
-               folder_c='D:\\PhD\\GIS-DBs\\copernico',
+               folder_c='D:\\PhD\\GIS-DBs\\copernico\\macaronesia',
                folder_g='D:\\PhD\\GIS-DBs\\GEBCO',
                filename_g='GEBCO_2019.nc',
                filename_c1='global-reanalysis-phy-001-030-monthly_',
                filename_c2='global-reanalysis-bio-001-029-monthly_',
-               filename_c3='global-reanalysis-bio-001-033-weekly_'):
+               filename_c3='global-reanalysis-bio-001-033-weekly_'):#data for map and test
     filename_gebco = os.path.join(folder_g,filename_g)
     filename1 = os.path.join(folder_c,filename_c1)
     filename2 = os.path.join(folder_c,filename_c2)
@@ -525,6 +563,7 @@ def Load_cephalopods_macaronesia(step_analysis=4):
 
 if __name__=='__main__':
     print("hello")
+    d = Load_cephalopods_macaronesia()
 
 
 

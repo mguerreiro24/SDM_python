@@ -8,10 +8,10 @@
 import numpy as np
 from sklearn.utils import Bunch#class Bunch(dict) keys==attributes
 from sklearn import svm, metrics
-
+from data_prep import create_species_bunch
 
 #---------------------------------------------------------------------------
-def build_polygon(lower_left_lon, lower_left_lat, size,data):
+def build_polygon(lower_left_lon, lower_left_lat, size,data):#not under use
     """
 requires:
     lower_left_lon    float()
@@ -19,7 +19,7 @@ requires:
     size              float()
     data              str()
 ensures:
-    Polygon entry for QGis
+    Polygon entry for QGis (GeoJason style?)
 """
     return "POLYGON (( %f %f , %f %f , %f %f , %f %f ));%s\n" % (lower_left_lon, lower_left_lat,
                                                                  lower_left_lon+size, lower_left_lat,
@@ -43,29 +43,6 @@ def construct_grids(batch):
     return (batch.xgrid,batch.ygrid,batch.zgrid)
 
 
-def create_species_bunch(species_name, train, test, coverages, xgrid, ygrid, zgrid):
-    """Create a bunch with information about a particular organism
-
-    This will use the test/train record arrays to extract the
-    data specific to the given species name.
-    """
-    bunch = Bunch(name=' '.join(species_name.split("_")))
-    #species_name = species_name.encode('ascii')
-    points = dict(test=test, train=train)
-
-    for label, pts in points.items():
-        # choose points associated with the desired species
-        pts = pts[pts['species'] == species_name]
-        bunch['pts_%s' % label] = pts
-
-        # determine coverage values for each of the training & testing points
-        ix = np.searchsorted(xgrid, pts['dd long'])
-        iy = np.searchsorted(ygrid, pts['dd lat'])
-        iz = np.searchsorted(zgrid, pts['m depth'])
-        bunch['cov_%s' % label] = coverages[:, iz, iy, ix].T#-iy?
-    return bunch
-
-
 def standardize_features(bunch):
     """
 requires: bunch object
@@ -78,7 +55,11 @@ ensures: mean,std,train_cover_std
 
 
 def Fit_OneClassSVM(training_set):#<-model maximum entropy
-    """
+    """ fit MaxEnt models into the train data
+requires:
+    training_set    array object with standardized observations
+ensures:
+    svm.OneClassSVM.fit()
 """
     clf = svm.OneClassSVM(nu=0.1, kernel="rbf", gamma=0.5)
     clf.fit(training_set)
