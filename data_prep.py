@@ -330,8 +330,11 @@ def create_species_bunch(species_name, train, test, coverages, xgrid, ygrid, zgr
 
 
 def data_train(data,points):
-def data_test(data,points):
+    print("men-at-work")
 
+
+def data_test(data,points):
+    print("men-at-work")
 
 #---------------------------------
 def read_gebco(filename,decimal_Latitude_range="14,40", decimal_Longitude_range="-35,-9"):
@@ -545,7 +548,7 @@ def Load_cephalopods_macaronesia(step_analysis=4):
                    ('m depth', np.int16)])
     test = []
     train = []
-    obs = read_sql_georeferenced_observations()
+    obs = read_sql_georeferenced_observations()#test_Lat_range='-2,49',test_Lon_range='-45,-5')
     for i in set(obs['species'].tolist()):
         print(np.count_nonzero(obs['species']==i),i)
         if np.count_nonzero(obs['species']==i)<10:
