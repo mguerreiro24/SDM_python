@@ -201,11 +201,14 @@ ensures:
         out[i]['ygrid'] = data[i][0].ygrid
         if i<2:
             out[i]['depth'] = data[i][0].depth
-        
         for key in data[i][0]:
             if key not in ['grid','depth','xgrid','ygrid']:
-                #insert sorted by time
                 out[i][key] = np.concatenate([data[i][jj][key] for jj in range(len(data[i]))])
+        #insert sorted by time--------------------------------------------------------
+        sorting_indexes = out[i]['time'].argsort()
+        for key in out[i]:
+            if key not in ['grid','depth','xgrid','ygrid']:
+                out[i][key] = out[i][key][sorting_indexes]
         data[i] = 0
     return out
 
