@@ -301,6 +301,7 @@ ORDER BY genus,sp''')
     Lobs = [[*i[:-2],round((i[-2]+i[-1])/2)] for i in [i for i in Lobs if type(i[-2])==int and type(i[-1])==int]]
     latm,latM = [float(t) for t in test_Lat_range.split(',')]
     lonm,lonM = [float(t) for t in test_Lon_range.split(',')]
+    Lobs = [i for i in Lobs if lonm<=i[2]<=lonM and latm<=i[3]<=latM]
     return read_georeferenced_observations(Lobs)
 
 
