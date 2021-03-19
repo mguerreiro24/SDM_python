@@ -92,7 +92,7 @@ ensures:
     fh = Dataset(nc_file_phys)
     #extraction of data
     b1 = Bunch()
-    b1['time'] = fh.variables['time'][:].data
+    b1['time'] = convert1950HHto1970ss(fh.variables['time'][:].data)
     b1['depth'] = fh.variables['depth'][:].data
     b1['ygrid'] = fh.variables['latitude'][:].data
     b1['xgrid'] = fh.variables['longitude'][:].data
@@ -118,7 +118,7 @@ ensures:
     fh = Dataset(nc_file_PP)
     #extraction of data
     b2 = Bunch()
-    b2['time'] = fh.variables['time'][:].data
+    b2['time'] = convert1950HHto1970ss(fh.variables['time'][:].data)
     b2['depth'] = fh.variables['depth'][:].data
     b2['ygrid'] = fh.variables['latitude'][:].data
     b2['xgrid'] = fh.variables['longitude'][:].data
@@ -201,13 +201,13 @@ ensures:
         out[i]['ygrid'] = data[i][0].ygrid
         if i<2:
             out[i]['depth'] = data[i][0].depth
-        for key in data[i][0]:
-            if key not in ['grid','depth','xgrid','ygrid']:
-                out[i][key] = np.concatenate([data[i][jj][key] for jj in range(len(data[i]))])
-        #insert sorted by time--------------------------------------------------------
+        #insert sorted by time
+        out[i]['time'] = np.concatenate([data[i][jj]['time'] for jj in range(len(data[i]))])
         sorting_indexes = out[i]['time'].argsort()
-        for key in out[i]:
-            if key not in ['grid','depth','xgrid','ygrid']:
+        #concatenating on time dimension (dimension 0)
+        for key in data[i][0]:
+            if key not in ['grid','depth','xgrid','ygrid','time']:
+                out[i][key] = np.concatenate([data[i][jj][key] for jj in range(len(data[i]))])
                 out[i][key] = out[i][key][sorting_indexes]
         data[i] = 0
     return out
@@ -233,11 +233,11 @@ requires:
 ensures:
     all bunches in data have the same grid size filled with values
 """
-    b2 = convert2higherResolutionGrid(data[1], data[0], d_tag=['O2',
-                                                               'chla',
-                                                               'netPP',
-                                                               'pH',
-                                                               'phytoplankyonC'])
+    b2 = convert2higherResolutionGrid(data[1], data[0], d_tag=['O2'])#,
+##                                                               'chla',
+##                                                               'netPP',
+##                                                               'pH',
+##                                                               'phytoplankyonC'])
     b3 = convert2higherResolutionGrid(data[2], data[0], d_tag=['depth_epi',
                                                                'mass_conc_epi',
                                                                'depth_umeso',
@@ -427,6 +427,16 @@ ensures:     temperature in degrees Kelvin
     Celsius += 273
 
 
+def convert1950HHto1970ss(hours):
+    """Converts a hours since 1950-01-01 00:00:00 time stamp into a
+seconds since 1970-1-1 00:00:00 time stamp
+requires:number of hours since 1950-01-01 00:00:00
+ensures:seconds since 1970-1-1 00:00:00
+"""
+    return (hours*60**2)-631152000
+
+
+#------------------------------------------------------------------------------
 def createData(step_analysis=0,
                folder_c='D:\\PhD\\GIS-DBs\\copernico\\macaronesia',
                folder_g='D:\\PhD\\GIS-DBs\\GEBCO',
@@ -453,16 +463,20 @@ def createData(step_analysis=0,
             pickle.dump(data,handle)
         print("done")
     if step_analysis<=2:
-        print('2. expanding grid...', end="")
+        print('2. expanding grid...')
         with open("dataa.pickle",'rb') as handle:
             data = pickle.load(handle)
         depths = len(data[0].depth)+len(data[1].depth)
+        print('higher resolution depth')
         for i,_ in enumerate(data[:2]):
             for key in data[i]:
                 if key not in ['grid','depth','xgrid','ygrid','time']:
+                    print(key)
                     j = np.ones((depths,*data[i][key].shape[-2:]), dtype=np.float64)
                     for y,_ in enumerate(data[i].ygrid):
+##                        print(y)
                         for x,_ in enumerate(data[i].xgrid):
+##                            print(y,x)
                             if i==0:
                                 wk = regression_points_calc(data[1].depth,np.c_[data[0].depth.tolist(),data[0][key][:,y,x].tolist()].tolist())
                             else:
@@ -471,6 +485,7 @@ def createData(step_analysis=0,
                     data[i][key] = j
             data[i].depth = [i[0] for i in wk]
 
+        print('higher resolution grid')
         standardize_grid(data)
         with open("dataaa.pickle",'wb') as handle:
             pickle.dump(data,handle)
@@ -541,7 +556,7 @@ def Load_cephalopods_macaronesia(step_analysis=4):
     Data = createData(step_analysis)
     water_mask = Data.coverages[-2]>=0
 
-
+    #to be worked upon <start>
     dt = np.dtype([('species', np.unicode_,36),
                    ('dd long', np.float64),
                    ('dd lat', np.float64),
@@ -565,15 +580,17 @@ def Load_cephalopods_macaronesia(step_analysis=4):
             train = np.r_[train,tr]
     test = np.array(test,dtype=dt)
     train = np.array(train,dtype=dt)
+    #to be worked upon <end>
     d = create_data_bunch(Data,water_mask,test,train)
     return d
 
 
 if __name__=='__main__':
     print("hello")
-    d = Load_cephalopods_macaronesia()
-
-
-
-
-
+    #d = Load_cephalopods_macaronesia()
+    d = createData(4)
+##    folder_c='D:\\PhD\\GIS-DBs\\copernico\\macaronesia'
+##    filename_c1='global-reanalysis-phy-001-030-monthly_1614001353482.nc'
+##    filename1 = os.path.join(folder_c,filename_c1)
+##
+##    fh = Dataset(filename1)
