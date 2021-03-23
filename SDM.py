@@ -100,8 +100,7 @@ def calculated_MaxEnt_SDM(bunch,spec=["Abraliopsis_atlantica"]):
                               np.random.randint(low=0, high=data.Nx,
                                                 size=10000)].T
 
-    # We'll make use of the fact that coverages[6] has measurements at all
-    # land points.  This will help us decide between land and water.
+    # water points
     land_reference = data.mask
 
     Zcoll = []
