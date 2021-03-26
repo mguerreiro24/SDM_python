@@ -312,32 +312,44 @@ ensures:
     bunch = Bunch(name=' '.join(species_name.split("_")))
     #species_name = species_name.encode('ascii')
     points = dict(test=test, train=train)
-
-    for label, pts in points.items():#change algorythm for efficiency
+    for label, pts in points.items():
         # choose points associated with the desired species
         pts = pts[pts['species'] == species_name]
         bunch['pts_%s' % label] = pts
-        # determine coverage values for each of the training & testing points
-        data = [0,0,0,0,0]
-        for i,ntcd in enumerate((file1,file2,file3)):
-            if i==0:
-                wfunc = read_copernicus_phys
-            elif i==1:
-                wfunc = read_copernicus_PP
-            elif i==2:
-                wfunc = read_copernicus_Zoo
-            path = '\\'.join(ntcd.split('\\')[:-1])
-            if path=='':
-                list_files = os.listdir()
-            else:
-                list_files = os.listdir(path)
-            ncfileregex = [j for j in list_files if j.startswith(ntcd.split('\\')[-1])]
-            data[i] = [0]*len(ncfileregex)
-            for ii,file in enumerate(ncfileregex):
-                data[i][ii] = wfunc(os.path.join(path,file))
-                grid = data[i][ii].grid
-                xgrid = data[i][ii].xgrid + grid/2
-                ygrid = data[i][ii].ygrid + grid/2
+
+    # determine coverage values for each of the training & testing points
+    w_data = {label:[0,0,0,0,0] for label in points.keys()}
+    data = [0,0,0,0,0]
+    for i,ntcd in enumerate((file1,file2,file3)):
+        if i==0:
+            wfunc = read_copernicus_phys
+        elif i==1:
+            wfunc = read_copernicus_PP
+        elif i==2:
+            wfunc = read_copernicus_Zoo
+        path = '\\'.join(ntcd.split('\\')[:-1])
+        if path=='':
+            list_files = os.listdir()
+        else:
+            list_files = os.listdir(path)
+
+        ncfileregex = [j for j in list_files if j.startswith(ntcd.split('\\')[-1])]
+        data[i] = [0]*len(ncfileregex)
+        for label,_ in points.items():
+            w_data[label][i] = [0]*len(ncfileregex)
+
+        for ii,file in enumerate(ncfileregex):
+            data[i][ii] = wfunc(os.path.join(path,file))
+            for label,_ in points.items():
+                w_data[label][i][ii] = Bunch()
+                w_data[label][i][ii]['time'] = data[i][ii].time
+
+            grid = data[i][ii].grid
+            xgrid = data[i][ii].xgrid + grid/2
+            ygrid = data[i][ii].ygrid + grid/2
+            #
+            for label,_ in points.items():
+                pts = bunch['pts_%s' % label]
                 ix = np.searchsorted(xgrid, pts['dd long'])
                 iy = np.searchsorted(ygrid, pts['dd lat'])
                 if 'depth' in data[i][ii]:
@@ -345,38 +357,46 @@ ensures:
                     iz = np.searchsorted(zgrid, pts['m depth'])
                     for key in data[i][ii]:
                         if key not in ['grid','depth','xgrid','ygrid','time']:
-                            data[i][ii][key] = data[i][ii][key][:,iz,iy,ix]
+                            w_data[label][i][ii][key] = data[i][ii][key][:,iz,iy,ix]
                 else:
                     for key in data[i][ii]:
                         if key not in ['grid','depth','xgrid','ygrid','time']:
-                            data[i][ii][key] = data[i][ii][key][:,iy,ix]
-            work_set = sorted(data[i], key=lambda x:x.time[0])
+                            w_data[label][i][ii][key] = data[i][ii][key][:,iy,ix]
+            data[i][ii] = 0
+        #
+        for label,_ in points.items():
+            pts = bunch['pts_%s' % label]
+            work_set = sorted(w_data[label][i], key=lambda x:x.time[0])
             time = np.array([t.time for t in work_set])
             
             iw = np.argmin((np.abs(time-pts['s 1970'])),axis=0)#get closest date|apply to depth
-            data[i] = Bunch()
+            w_data[label][i] = Bunch()
             for key in work_set[0]:
                 if key not in ['grid','depth','xgrid','ygrid','time']:
-                    data[i][key] = np.stack([work_set[hh][key][0][ih] for ih,hh in enumerate(iw)], axis=0)
-            del work_set
-        
-        setD = read_gebco(fileg,"-0.1,46.6","-26,-6.89")
-        grid = setD.grid
-        xgrid = setD.xgrid + grid/2
-        ygrid = setD.ygrid + grid/2
+                    w_data[label][i][key] = np.stack([work_set[hh][key][0][ih] for ih,hh in enumerate(iw)], axis=0)
+        del work_set
+
+    #2 last entries
+    setD = read_gebco(fileg,"-0.1,46.6","-26,-6.89")
+    grid = setD.grid
+    xgrid = setD.xgrid + grid/2
+    ygrid = setD.ygrid + grid/2
+
+    for label,_ in points.items():
+        pts = bunch['pts_%s' % label]
         ix = np.searchsorted(xgrid, pts['dd long'])
         iy = np.searchsorted(ygrid, pts['dd lat'])
         #distance benthos
-        data[3] = (pts['m depth']+setD['elevation'][iy, ix])*-1
+        w_data[label][3] = (pts['m depth']+setD['elevation'][iy, ix])*-1
         #pressure increase
-        data[4] = calc_press_increase(pts['m depth'])
-        Celsius2Kelvin(data[0]['temperature'])
-        s = []
-        for h,_ in enumerate(data[:3]):
-            for key in data[h]:
+        w_data[label][4] = calc_press_increase(pts['m depth'])
+        Celsius2Kelvin(w_data[label][0]['temperature'])
+        s = []#data coverages for bunch
+        for h,_ in enumerate(w_data[label][:3]):
+            for key in w_data[label][h]:
                 if key not in ['grid','depth','xgrid','ygrid','time']:
-                    s.append(data[h][key])
-        for h in data[3:]:
+                    s.append(w_data[label][h][key])
+        for h in w_data[label][3:]:
             s.append(h)
             
         bunch['cov_%s' % label] = np.stack(s).T
@@ -613,94 +633,13 @@ def Load_cephalopods_macaronesia(step_analysis=4):
 
 if __name__=='__main__':
     print("hello")
-    d = Load_cephalopods_macaronesia()
+    #d = Load_cephalopods_macaronesia()
     #d = createData(4)
     #obs = read_sql_georeferenced_observations(test_Lat_range='-2,49',test_Lon_range='-45,-5')
-    #test,train = train_test()
+    test,train = train_test()
     species_name = 'Abraliopsis_atlantica'
-    sp_b = create_species_bunch(species_name, d.train, d.test)
 
 
-##    f1 = "mercatorglorys12v1_gl12_mean_"
-##    f2 = "mercatorfreebiorys2v4_global_mean_"
-##    f3 = "global-reanalysis-bio-001-033-weekly_"
-##    folder_c = 'D:\\PhD\\GIS-DBs\\copernico\\greater range'
-##    file1 = os.path.join(folder_c,f1)
-##    file2 = os.path.join(folder_c,f2)
-##    file3 = os.path.join(folder_c,f3)
-##    folder_g='D:\\PhD\\GIS-DBs\\GEBCO'
-##    filename_g='GEBCO_2019.nc'
-##    fileg = os.path.join(folder_g,filename_g)
-##    bunch = Bunch(name=' '.join(species_name.split("_")))
-##    #species_name = species_name.encode('ascii')
-##    points = dict(test=test, train=train)
-##
-##    for label, pts in points.items():
-##        # choose points associated with the desired species
-##        pts = pts[pts['species'] == species_name]
-##        bunch['pts_%s' % label] = pts
-##        # determine coverage values for each of the training & testing points
-##        data = [0,0,0,0,0]
-##        for i,ntcd in enumerate((file1,file2,file3)):
-##            if i==0:
-##                wfunc = read_copernicus_phys
-##            elif i==1:
-##                wfunc = read_copernicus_PP
-##            elif i==2:
-##                wfunc = read_copernicus_Zoo
-##            path = '\\'.join(ntcd.split('\\')[:-1])
-##            if path=='':
-##                list_files = os.listdir()
-##            else:
-##                list_files = os.listdir(path)
-##            ncfileregex = [j for j in list_files if j.startswith(ntcd.split('\\')[-1])]
-##            data[i] = [0]*len(ncfileregex)
-##            for ii,file in enumerate(ncfileregex):
-##                data[i][ii] = wfunc(os.path.join(path,file))
-##                grid = data[i][ii].grid
-##                xgrid = data[i][ii].xgrid + grid/2
-##                ygrid = data[i][ii].ygrid + grid/2
-##                ix = np.searchsorted(xgrid, pts['dd long'])
-##                iy = np.searchsorted(ygrid, pts['dd lat'])
-##                if 'depth' in data[i][ii]:
-##                    zgrid = data[i][ii].depth
-##                    iz = np.searchsorted(zgrid, pts['m depth'])
-##                    for key in data[i][ii]:
-##                        if key not in ['grid','depth','xgrid','ygrid','time']:
-##                            data[i][ii][key] = data[i][ii][key][:,iz,iy,ix]
-##                else:
-##                    for key in data[i][ii]:
-##                        if key not in ['grid','depth','xgrid','ygrid','time']:
-##                            data[i][ii][key] = data[i][ii][key][:,iy,ix]
-##            work_set = sorted(data[i], key=lambda x:x.time[0])
-##            time = np.array([t.time for t in work_set])
-##            
-##            iw = np.argmin((np.abs(time-pts['s 1970'])),axis=0)#get closest date|apply to depth
-##            data[i] = Bunch()
-##            for key in work_set[0]:
-##                if key not in ['grid','depth','xgrid','ygrid','time']:
-##                    data[i][key] = np.stack([work_set[hh][key][0][ih] for ih,hh in enumerate(iw)], axis=0)
-##            del work_set
-##        
-##        setD = read_gebco(fileg,"-0.1,46.6","-26,-6.89")
-##        grid = setD.grid
-##        xgrid = setD.xgrid + grid/2
-##        ygrid = setD.ygrid + grid/2
-##        ix = np.searchsorted(xgrid, pts['dd long'])
-##        iy = np.searchsorted(ygrid, pts['dd lat'])
-##        #distance benthos
-##        data[3] = (pts['m depth']+setD['elevation'][iy, ix])*-1
-##        #pressure increase
-##        data[4] = calc_press_increase(pts['m depth'])
-##        Celsius2Kelvin(data[0]['temperature'])
-##        s = []
-##        for h,_ in enumerate(data[:3]):
-##            for key in data[h]:
-##                if key not in ['grid','depth','xgrid','ygrid','time']:
-##                    s.append(data[h][key])
-##        for h in data[3:]:
-##            s.append(h)
-##            
-##        bunch['cov_%s' % label] = np.stack(s).T
-##    return bunch
+
+
 

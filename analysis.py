@@ -32,7 +32,7 @@ def Plot_SDM(Z,l,A,xgrid,ygrid,species_name,train,test,ppi=900):
     plt.close()
 
 if __name__=="__main__":
-    species = ['Pterygioteuthis_gemmata','Abraliopsis_atlantica']#,'Cranchia_scabra', 'Abralia_redfieldi', 'Leachia_atlantica', 'Liocranchia_reinhardti', 'Heteroteuthis_dispar', 'Bathyteuthis_abyssicola', 'Helicocranchia_pfefferi', 'Helicocranchia_pfefferi', 'Mastigopsis_hjorti']
+    species = ['Pterygioteuthis_gemmata','Abraliopsis_atlantica','Cranchia_scabra', 'Abralia_redfieldi', 'Leachia_atlantica', 'Liocranchia_reinhardti', 'Heteroteuthis_dispar', 'Bathyteuthis_abyssicola', 'Helicocranchia_pfefferi', 'Helicocranchia_pfefferi', 'Mastigopsis_hjorti']
     Zs,Ls,As,xgrid,ygrid,train,test = calculated_MaxEnt_SDM(species)
     for i,specie in enumerate(species):
         Plot_SDM(Zs[i],Ls[i],As[i],xgrid,ygrid,specie,train,test)
