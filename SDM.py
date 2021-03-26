@@ -8,7 +8,7 @@
 import numpy as np
 from sklearn.utils import Bunch#class Bunch(dict) keys==attributes
 from sklearn import svm, metrics
-from data_prep import create_species_bunch
+from data_prep import *
 
 #---------------------------------------------------------------------------
 def build_polygon(lower_left_lon, lower_left_lat, size,data):#not under use
@@ -66,9 +66,19 @@ ensures:
     return clf
 
 
-def calculated_MaxEnt_SDM(bunch,spec=["Abraliopsis_atlantica"]):
+def calculated_MaxEnt_SDM(spec=["Abraliopsis_atlantica"]):
+    test,train = train_test()
+
+
+    # create a bunch for each species
+    bunchs = []
+    for sp in spec:
+        bunchs.append(create_species_bunch(sp,
+                                           train, test)
+                      )
+
     # Load the compressed data
-    data = bunch
+    data = Load_cephalopods_macaronesia()
     data.coverages[data.coverages<0] = -9999
     data.coverages[np.isnan(data.coverages)] = -9999
     data.coverages[np.isinf(data.coverages)] = -9999
@@ -76,20 +86,11 @@ def calculated_MaxEnt_SDM(bunch,spec=["Abraliopsis_atlantica"]):
     data.coverages[data.coverages>fmax] = fmax
     print("data prepped?")
     print(np.count_nonzero(np.isnan(data.coverages)),np.count_nonzero(np.isinf(data.coverages)))
+
     # Set up the data grid
     xgrid = data.xgrid
     ygrid = data.ygrid
     zgrid = data.zgrid
-    # The grid in x,y coordinates z?
-##    X, Y = np.meshgrid(xgrid, ygrid)#ygrid[::-1]for plotting| is it?
-
-    # create a bunch for each species
-    bunchs = []
-    for sp in spec:
-        bunchs.append(create_species_bunch(sp,
-                                           data.train, data.test,
-                                           data.coverages, xgrid, ygrid, zgrid)
-                      )
 
     # background points (grid coordinates) for evaluation
     np.random.seed(13)#
@@ -148,11 +149,10 @@ def calculated_MaxEnt_SDM(bunch,spec=["Abraliopsis_atlantica"]):
         print("\n Area under the ROC curve : %f" % roc_auc)
         Zcoll.append(Z)
         AUCs.append(roc_auc)
-    return Zcoll,levels,AUCs
+    return Zcoll,levels,AUCs,xgrid,ygrid,train,test
 
 
 if __name__=="__main__":
     from data_prep import *
-    d = Load_cephalopods_macaronesia()
     # Load the compressed data
-    Zs,Ls,As = calculated_MaxEnt_SDM(d,['Pterygioteuthis_gemmata','Abraliopsis_atlantica'])
+    Zs,Ls,As = calculated_MaxEnt_SDM(['Pterygioteuthis_gemmata','Abraliopsis_atlantica'])
