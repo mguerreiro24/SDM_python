@@ -9,6 +9,9 @@ import numpy as np
 from sklearn.utils import Bunch#class Bunch(dict) keys==attributes
 from sklearn import svm, metrics
 from data_prep import *
+from sklearn.neural_network import MLPClassifier
+from sklearn.preprocessing import StandardScaler
+from sklearn import tree
 
 #---------------------------------------------------------------------------
 def build_polygon(lower_left_lon, lower_left_lat, size,data):#not under use
@@ -54,6 +57,48 @@ ensures: mean,std,train_cover_std
     return mean, std, train_cover_std
 
 
+#------------------------Tree D--------------------------------------------#
+def Fit_DecisionTreeRegressor(training_set,labels):
+    """ fit Decision Trees into the train data
+requires:
+    training_set    array object with observations
+    labels          array with presence-absence (1 and 0 respectively)
+ensures:
+    tree.DecisionTreeClassifier.fit()
+"""
+    clf = tree.DecisionTreeClassifier()
+    clf.fit(training_set,labels)
+    return clf
+
+
+#------------------------Neural--------------------------------------------#
+def Fit_MLPClassifier(training_set,labels):
+    """ fit neural network into the train data
+requires:
+    training_set    array object with standardized observations
+    labels          array with presence-absence (1 and 0 respectively)
+ensures:
+    MLPClassifier.fit()
+"""
+    clf = MLPClassifier(solver='lbfgs',
+                        alpha=1e-5,
+                        hidden_layer_sizes=(5, 2),#
+                        random_state=1)
+    clf.fit(training_set,labels)
+    return clf
+
+
+def standardize_features2(X_train):#,X_test):
+    scaler = StandardScaler()
+    # Don't cheat - fit only on training data
+    scaler.fit(X_train)
+    X_train = scaler.transform(X_train)
+    return scaler,X_train
+##    # apply same transformation to test data
+##    X_test = scaler.transform(X_test)
+
+
+#------------------------MaxEnt--------------------------------------------#
 def Fit_OneClassSVM(training_set):#<-model maximum entropy
     """ fit MaxEnt models into the train data
 requires:
@@ -61,7 +106,9 @@ requires:
 ensures:
     svm.OneClassSVM.fit()
 """
-    clf = svm.OneClassSVM(nu=0.1, kernel="rbf", gamma=0.5)
+    clf = svm.OneClassSVM(nu=0.1,
+                          kernel="rbf",
+                          gamma=0.5)
     clf.fit(training_set)
     return clf
 
@@ -155,4 +202,4 @@ def calculated_MaxEnt_SDM(spec=["Abraliopsis_atlantica"]):
 if __name__=="__main__":
     from data_prep import *
     # Load the compressed data
-    Zs,Ls,As = calculated_MaxEnt_SDM(['Pterygioteuthis_gemmata','Abraliopsis_atlantica'])
+    Zs,Ls,As,xgrid,ygrid,train,test = calculated_MaxEnt_SDM(['Pterygioteuthis_gemmata','Abraliopsis_atlantica'])

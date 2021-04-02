@@ -268,8 +268,10 @@ ensures:test,train datasets [Bunch()]
             continue
         oobs = obs[np.where(obs['species']==i)]
         n = round(len(oobs)*0.3)
-        its,tr = np.array(WithoutReposition2(n,oobs))
-        tst = np.array(negativeSampling(its,oobs))
+        its,tr = WithoutReposition2(n,oobs)
+        tst = negativeSampling(its,oobs)
+        tr = np.array(tr)
+        tst = np.array(tst)
         if len(test)==0:
             test = tst
             train = tr
@@ -279,6 +281,49 @@ ensures:test,train datasets [Bunch()]
     test = np.array(test,dtype=dt)
     train = np.array(train,dtype=dt)
     return test,train
+
+
+def train_test_PA(db_path = 'D:\\PhD\\articles\\article DB',
+                  db = 'samples.db'):
+    """preparing [presence-]absence data for train and test of model
+requires:
+ensures:test_A,train_A -> absence datasets [Bunch()]
+"""
+    dt = np.dtype([('species', np.unicode_,36),
+                   ('dd long', np.float64),
+                   ('dd lat', np.float64),
+                   ('s 1970', np.int32),
+                   ('m depth', np.int16)])
+    conn = sqlite3.connect(os.path.join(db_path,db))
+    cursor = conn.cursor()
+    cursor.execute('''
+SELECT DISTINCT Longitude,Latitude,UnixTime,depth_min,depth_Max
+FROM net inner join station using (id_st,id_c) inner join cruise using (id_c)
+WHERE id_c=1
+''')
+    Lobs = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    Lobs = [[*i[:-2],round((i[-2]+i[-1])/2)] for i in [i for i in Lobs if type(i[-2])==int and type(i[-1])==int]]
+    test_A,train_A = [[],[]]
+
+    test,train = train_test()
+
+    for s in set(train['species']):
+        keep = []
+        strain = [list(i[1:]) for i in train[train['species']==s].tolist()]
+        strain.extend([list(i[1:]) for i in test[test['species']==s].tolist()])
+        for p in Lobs:
+            if p not in strain:
+                keep.append([*s.split('_'),*p])
+        n = round(len(keep)*0.3)
+        its,tr = WithoutReposition2(n,keep)
+        tst = negativeSampling(its,keep)
+        test_A.extend(tst)
+        train_A.extend(tr)
+    test_A = read_georeferenced_observations(test_A)
+    train_A = read_georeferenced_observations(train_A)
+    return test_A,train_A
 
 
 def create_species_bunch(species_name, train, test):#, coverages):
@@ -636,7 +681,8 @@ if __name__=='__main__':
     #d = Load_cephalopods_macaronesia()
     #d = createData(4)
     #obs = read_sql_georeferenced_observations(test_Lat_range='-2,49',test_Lon_range='-45,-5')
-    test,train = train_test()
+    #test,train = train_test()
+    test_A,train_A = train_test_PA()
     species_name = 'Abraliopsis_atlantica'
 
 
