@@ -118,11 +118,7 @@ def calculated_MaxEnt_SDM(spec=["Abraliopsis_atlantica"]):
 
 
     # create a bunch for each species
-    bunchs = []
-    for sp in spec:
-        bunchs.append(create_species_bunch(sp,
-                                           train, test)
-                      )
+    bunchs = create_community_bunch(spec,train, test)
 
     # Load the compressed data
     data = Load_cephalopods_macaronesia()
@@ -131,8 +127,8 @@ def calculated_MaxEnt_SDM(spec=["Abraliopsis_atlantica"]):
     data.coverages[np.isinf(data.coverages)] = -9999
     fmax = np.finfo(np.float64).max
     data.coverages[data.coverages>fmax] = fmax
-    print("data prepped?")
-    print(np.count_nonzero(np.isnan(data.coverages)),np.count_nonzero(np.isinf(data.coverages)))
+##    print("data prepped?")
+##    print(np.count_nonzero(np.isnan(data.coverages)),np.count_nonzero(np.isinf(data.coverages)))
 
     # Set up the data grid
     xgrid = data.xgrid

@@ -235,8 +235,8 @@ ensures: Numpy array with
     cursor.execute('''
 SELECT DISTINCT genus,sp,Longitude,Latitude,UnixTime,depth_min,depth_Max
 FROM sample inner join species using (id_s) inner join net using (id_n,id_st,id_c) inner join station using (id_st,id_c) inner join cruise using (id_c)
-WHERE id_c=1
-ORDER BY genus,sp''')
+WHERE id_c=1 OR id_c>3
+ORDER BY genus,sp''')#
     Lobs = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -264,10 +264,10 @@ ensures:test,train datasets [Bunch()]
     #point of selecting ratio and sampling for the 2 categories
     for i in set(obs['species'].tolist()):
         #print(np.count_nonzero(obs['species']==i),i)
-        if np.count_nonzero(obs['species']==i)<10:
+        if np.count_nonzero(obs['species']==i)<9:
             continue
         oobs = obs[np.where(obs['species']==i)]
-        n = round(len(oobs)*0.3)
+        n = round(len(oobs)*0.7)#percentage for training
         its,tr = WithoutReposition2(n,oobs)
         tst = negativeSampling(its,oobs)
         tr = np.array(tr)
@@ -299,8 +299,8 @@ ensures:test_A,train_A -> absence datasets [Bunch()]
     cursor.execute('''
 SELECT DISTINCT Longitude,Latitude,UnixTime,depth_min,depth_Max
 FROM net inner join station using (id_st,id_c) inner join cruise using (id_c)
-WHERE id_c=1
-''')
+WHERE id_c=1 OR id_c>3
+''')#
     Lobs = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -316,7 +316,7 @@ WHERE id_c=1
         for p in Lobs:
             if p not in strain:
                 keep.append([*s.split('_'),*p])
-        n = round(len(keep)*0.3)
+        n = round(len(oobs)*0.7)#percentage for training
         its,tr = WithoutReposition2(n,keep)
         tst = negativeSampling(its,keep)
         test_A.extend(tst)
@@ -446,6 +446,141 @@ ensures:
             
         bunch['cov_%s' % label] = np.stack(s).T
     return bunch
+
+
+def create_community_bunch(species_name, train, test):
+    """Create a bunch with information about a community
+
+    This will use the test/train record arrays to extract the
+    data specific to the given species name.
+requires:
+    species_name   list(str()): list(str(genus_species))
+    train          np.array dtype=[('species', '<U36'), ('dd long', '<f8'), ('dd lat', '<f8'), ('s 1970', '<i4'), ('m depth', '<i2')])
+    test           np.array dtype=[('species', '<U36'), ('dd long', '<f8'), ('dd lat', '<f8'), ('s 1970', '<i4'), ('m depth', '<i2')])
+ensures:
+    list(Bunch(species))
+    coverages      
+                       Copernicus - Physics,
+                       Copernicus - Biochemical[O2],
+                       Copernicus - Zooplankton,
+                       GEBCO - distance from seaBed,
+                       GEBCO - pressure increase by 10 m
+    """
+    f1 = "mercatorglorys12v1_gl12_mean_"
+    f2 = "mercatorfreebiorys2v4_global_mean_"
+    f3 = "global-reanalysis-bio-001-033-weekly_"
+    folder_c = 'D:\\PhD\\GIS-DBs\\copernico\\greater range'
+    file1 = os.path.join(folder_c,f1)
+    file2 = os.path.join(folder_c,f2)
+    file3 = os.path.join(folder_c,f3)
+    folder_g='D:\\PhD\\GIS-DBs\\GEBCO'
+    filename_g='GEBCO_2019.nc'
+    fileg = os.path.join(folder_g,filename_g)
+    list_B = [Bunch(name=' '.join(species.split("_"))) for species in species_name]
+    
+    #species_name = species_name.encode('ascii')
+    points = dict(test=test, train=train)
+    for si,species in enumerate(species_name):
+        for label, pts in points.items():
+            # choose points associated with each desired species (indexed to 'list_B')
+            pts = pts[pts['species'] == species]
+            list_B[si]['pts_%s' % label] = pts
+
+    # determine coverage values for each of the training & testing points
+    w_data = [{label:[0,0,0,0,0] for label in points.keys()} for sp in species_name]
+    data = [0,0,0,0,0]
+    for i,ntcd in enumerate((file1,file2,file3)):
+        if i==0:
+            wfunc = read_copernicus_phys
+        elif i==1:
+            wfunc = read_copernicus_PP
+        elif i==2:
+            wfunc = read_copernicus_Zoo
+        path = '\\'.join(ntcd.split('\\')[:-1])
+        #prepping up path of files to load (coverage files)
+        if path=='':
+            list_files = os.listdir()
+        else:
+            list_files = os.listdir(path)
+
+        #getting the files names
+        ncfileregex = [j for j in list_files if j.startswith(ntcd.split('\\')[-1])]
+        #preparing to load data variables
+        data[i] = [0]*len(ncfileregex)
+        for label,_ in points.items():
+            for si,_ in enumerate(species_name):
+                w_data[si][label][i] = [0]*len(ncfileregex)
+
+        #
+        for ii,file in enumerate(ncfileregex):
+            data[i][ii] = wfunc(os.path.join(path,file))#data loaded here
+            for label,_ in points.items():
+                for si,_ in enumerate(species_name):
+                    w_data[si][label][i][ii] = Bunch()
+                    w_data[si][label][i][ii]['time'] = data[i][ii].time#time info
+
+            #getting positional data on loaded dataset
+            grid = data[i][ii].grid
+            xgrid = data[i][ii].xgrid + grid/2
+            ygrid = data[i][ii].ygrid + grid/2
+            #getting the points from the raw data of copernicus
+            for label,_ in points.items():
+                for si,_ in enumerate(species_name):
+                    pts = list_B[si]['pts_%s' % label]
+                    ix = np.searchsorted(xgrid, pts['dd long'])
+                    iy = np.searchsorted(ygrid, pts['dd lat'])
+                    if 'depth' in data[i][ii]:#getting positional data on loaded dataset
+                        zgrid = data[i][ii].depth
+                        iz = np.searchsorted(zgrid, pts['m depth'])
+                        for key in data[i][ii]:
+                            if key not in ['grid','depth','xgrid','ygrid','time']:
+                                w_data[si][label][i][ii][key] = data[i][ii][key][:,iz,iy,ix]
+                    else:
+                        for key in data[i][ii]:
+                            if key not in ['grid','depth','xgrid','ygrid','time']:
+                                w_data[si][label][i][ii][key] = data[i][ii][key][:,iy,ix]
+            data[i][ii] = 0
+        #
+        for label,_ in points.items():
+            for si,_ in enumerate(species_name):
+                pts = list_B[si]['pts_%s' % label]
+                work_set = sorted(w_data[si][label][i], key=lambda x:x.time[0])
+                time = np.array([t.time for t in work_set])
+
+                #get closest date|apply to depth
+                iw = np.argmin((np.abs(time-pts['s 1970'])),axis=0)
+                w_data[si][label][i] = Bunch()
+                for key in work_set[0]:
+                    if key not in ['grid','depth','xgrid','ygrid','time']:
+                        w_data[si][label][i][key] = np.stack([work_set[hh][key][0][ih] for ih,hh in enumerate(iw)], axis=0)
+        del work_set
+
+    #2 last entries
+    setD = read_gebco(fileg,"-0.1,46.6","-26,-6.89")
+    grid = setD.grid
+    xgrid = setD.xgrid + grid/2
+    ygrid = setD.ygrid + grid/2
+
+    for label,_ in points.items():
+        for si,_ in enumerate(species_name):
+            pts = list_B[si]['pts_%s' % label]
+            ix = np.searchsorted(xgrid, pts['dd long'])
+            iy = np.searchsorted(ygrid, pts['dd lat'])
+            #distance benthos
+            w_data[si][label][3] = (pts['m depth']+setD['elevation'][iy, ix])*-1
+            #pressure increase
+            w_data[si][label][4] = calc_press_increase(pts['m depth'])
+            Celsius2Kelvin(w_data[si][label][0]['temperature'])
+            s = []#data coverages for bunch
+            for h,_ in enumerate(w_data[si][label][:3]):
+                for key in w_data[si][label][h]:
+                    if key not in ['grid','depth','xgrid','ygrid','time']:
+                        s.append(w_data[si][label][h][key])
+            for h in w_data[si][label][3:]:
+                s.append(h)
+                
+            list_B[si]['cov_%s' % label] = np.stack(s).T
+    return list_B
 
 
 #---------------------------------
@@ -681,8 +816,8 @@ if __name__=='__main__':
     #d = Load_cephalopods_macaronesia()
     #d = createData(4)
     #obs = read_sql_georeferenced_observations(test_Lat_range='-2,49',test_Lon_range='-45,-5')
-    #test,train = train_test()
-    test_A,train_A = train_test_PA()
+    test,train = train_test()
+    #test_A,train_A = train_test_PA()
     species_name = 'Abraliopsis_atlantica'
 
 
