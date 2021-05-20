@@ -442,7 +442,7 @@ class Fit_bioclim():
     def decision_function(self,value):
         """value --> numpy array
 requires: value, a numpy array
-ensures: np.array with 1.0's for classifief within envelope,
+ensures: np.array with 1.0's for classified within envelope,
          0.0's for outside envelope
 """
         out = np.zeros(value.shape)
@@ -503,8 +503,46 @@ def calculate_bioclim_SDM(spec=["Abralia_redfieldi"]):
     if not data_avail:
         for i,sp in enumerate(spec):
             pickle.dump(bunchs[i], open('{}_.p'.format(sp),'wb'))
-    return Zcoll,AUCs,xgrid,ygrid,train,test
+    return Zcoll,AUCs,xgrid,ygrid,train,test,land_reference
 
+#----------------------------AquaMaps----------------------------------------------#
+"""AquaMaps envelop algorithm"""
+def lm_(p1,p2,v):
+    """linear regression"""
+    m =float(p2[0]-p1[0])/float(p2[1]-p1[1])
+    b =float(p2[0]-p2[1]*m)
+    return m*v+b
+    
+
+class Fit_AquaMaps():
+    def __init__(self,training_set):
+        #Quartiles and interquartile distance
+        q75, q25 = np.percentile(training_set, [75 ,25])
+        iqr = q75 - q25
+        
+        #core distribution
+        self.p10 = np.percentile(training_set,10,axis=0)
+        #between these two values == 1
+        self.p90 = np.percentile(training_set,90,axis=0)
+
+        #from here, gradient to == 0
+        self.maximums = np.minimum(training_set.max(0), q25 - 1.5 * iqr)
+        self.minimums = np.maximum(training_set.min(0), q75 + 1.5 * iqr)
+    def predict_proba(self,value):
+        """value --> numpy array
+requires: value, a numpy array
+ensures: np.array with probabilities for classified within envelope"""
+        out = np.zeros(value.shape)
+        #calculate prob for each dimension
+        for i,(mi,p10,p90,ma) in enumerate(zip(self.minimums,self.p10,self.p90,self.maximums)):
+            mask = (value[:,i]<=p90) & (value[:,i]>=p10)
+            out[:,i][mask] = 1.0
+            mask = (value[:,i]>p90) & (value[:,i]<=ma)
+            out[:,i][mask] = lm_((1.0,p90),(.0,ma),out[:,i][mask])
+            mask = (value[:,i]<p10) & (value[:,i]>=mi)
+            out[:,i][mask] = lm_((.0,mi),(1.0,p10),out[:,i][mask])
+        out = out.prod(1)
+        return out
 
 if __name__=="__main__":
     spec=["Abraliopsis_atlantica","Abralia_redfieldi"]

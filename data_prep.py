@@ -21,6 +21,7 @@ def read_copernicus_phys(nc_file_phys):
     """
 requires:
     file name of netCDF4 with physical variables from copernicus
+    source: ftp://my.cmems-du.eu/Core/GLOBAL_REANALYSIS_PHY_001_030/global-reanalysis-phy-001-030-monthly
 ensures:
     Bunch object
 """
@@ -47,6 +48,7 @@ def read_copernicus_PP(nc_file_PP):
     """
 requires:
     file name of netCDF4 with primary production from copernicus
+    source: ftp://my.cmems-du.eu/Core/GLOBAL_REANALYSIS_BIO_001_029/global-reanalysis-bio-001-029-monthly/
 ensures:
     Bunch object
 """
@@ -98,6 +100,59 @@ ensures:
     b3['mass_conc_lmeso'] = fh.variables['mnkc_lmeso'][:].data
     b3['mass_conc_lmeso_mig'] = fh.variables['mnkc_lmmeso'][:].data
     b3['mass_conc_lmeso_Hmig'] = fh.variables['mnkc_lhmmeso'][:].data
+    fh.close()
+    return b3
+
+
+def read_copernicus_Zoo_n(nc_file_zoo1, nc_file_zoo2):#2 files
+    """
+requires:
+    file names of netCDF4 with zooplankton from copernicus
+        nc_file_zoo1    with variables: mnkc_epi,
+                                        mnkc_umeso,
+                                        mnkc_mumeso,
+                                        mnkc_lmeso,
+                                        mnkc_mlmeso,
+                                        mnkc_hmlmeso,
+                                        #zooc,
+                                        #zeu,
+                                        #npp
+        nc_file_zoo2    with variables: pelagic_layer_depth,
+                                        #T,
+                                        #U,
+                                        #V
+    source1: ftp://my.cmems-du.eu/Core/GLOBAL_MULTIYEAR_BGC_001_033/cmems_mod_glo_bgc_my_0.083deg-lmtl_PT1D-i/
+    source2: ftp://my.cmems-du.eu/Core/GLOBAL_MULTIYEAR_BGC_001_033/cmems_mod_glo_bgc_my_0.083deg-lmtl-Fphy_PT1D-i/
+ensures:
+    Bunch object
+"""
+    print('Zooplankton, File: {}'.format(nc_file_zoo1))
+    #load data
+    fh = Dataset(nc_file_zoo1)
+    #extraction of data
+    b3 = Bunch()
+    b3['time'] = fh.variables['time'][:].data
+    b3['ygrid'] = fh.variables['latitude'][:].data
+    b3['xgrid'] = fh.variables['longitude'][:].data
+    b3['grid'] = abs(b3['ygrid'][0]-b3['ygrid'][1])
+    #epipelagic
+    b3['mass_conc_epi'] = fh.variables['mnkc_epi'][:].data
+    #upper mesopelagic
+    b3['mass_conc_umeso'] = fh.variables['mnkc_umeso'][:].data
+    b3['mass_conc_umeso_mig'] = fh.variables['mnkc_ummeso'][:].data
+    #lower mesopelagic
+    b3['mass_conc_lmeso'] = fh.variables['mnkc_lmeso'][:].data
+    b3['mass_conc_lmeso_mig'] = fh.variables['mnkc_lmmeso'][:].data
+    b3['mass_conc_lmeso_Hmig'] = fh.variables['mnkc_lhmmeso'][:].data
+    fh.close()
+    print('Zooplankton, File: {}'.format(nc_file_zoo2))
+    fh = Dataset(nc_file_zoo2)
+    #epipelagic
+    b3['depth_epi'] = fh.variables['pelagic_layer_depth'][:,0].data
+    #upper mesopelagic
+    b3['depth_umeso'] = fh.variables['pelagic_layer_depth'][:,1].data
+    #lower mesopelagic
+    b3['depth_lmeso'] = fh.variables['pelagic_layer_depth'][:,2].data
     fh.close()
     return b3
 
