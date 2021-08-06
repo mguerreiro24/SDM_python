@@ -645,6 +645,46 @@ def createData(step_analysis=0,
                filename_c1='global-reanalysis-phy-001-030-monthly_',
                filename_c2='global-reanalysis-bio-001-029-monthly_',
                filename_c3='global-reanalysis-bio-001-033-weekly_'):#data for map and test
+    def Biomass(data):
+        """for createData function, processing zooplankton data step
+    """
+        shape = data[0].temperature.shape
+        biom = np.zeros(shape)
+        
+        data[2]['biomass'] = biom
+        for d in range(0,shape[0]):
+            for y in range(0,shape[1]):
+                for x in range(0,shape[2]):
+                    #epipelagic
+                    if data[2].depth_epi[y,x]>=data[0].depth[d]:
+                        try:
+                            if data[2].mass_conc_lmeso_Hmig[y,x]>10**4 or data[2].mass_conc_umeso_mig[y,x]>10**4 or data[2].mass_conc_epi[y,x]>10**4:
+                                raise OverflowError
+                            data[2].biomass[d,y,x] = data[2].mass_conc_epi[y,x] + data[2].mass_conc_lmeso_Hmig[y,x] + data[2].mass_conc_umeso_mig[y,x]
+                        except OverflowError:
+                            try:
+                                if data[2].mass_conc_umeso_mig[y,x]>10**4 or data[2].mass_conc_epi[y,x]>10**4:
+                                    raise OverflowError
+                                data[2].biomass[d,y,x] = data[2].mass_conc_epi[y,x] + data[2].mass_conc_umeso_mig[y,x]
+                            except OverflowError:
+                                if data[2].mass_conc_epi[y,x]<10**4:
+                                    data[2].biomass[d,y,x] = data[2].mass_conc_epi[y,x]
+                    #upper mesopelagic
+                    elif data[2].depth_umeso[y,x]>=data[0].depth[d]:
+                        try:
+                            if data[2].mass_conc_umeso[y,x]>10**4 or data[2].mass_conc_lmeso_mig[y,x]>10**4:
+                                raise OverflowError
+                            data[2].biomass[d,y,x] = data[2].mass_conc_umeso[y,x] + data[2].mass_conc_lmeso_mig[y,x]
+                        except OverflowError:
+                            if data[2].mass_conc_umeso[y,x]<10**4:
+                                data[2].biomass[d,y,x] = data[2].mass_conc_umeso[y,x]
+                    #lower mesopelagic
+                    elif data[2].depth_lmeso[y,x]>=data[0].depth[d]:
+                        if data[2].mass_conc_lmeso[y,x]<10**4:
+                            data[2].biomass[d,y,x] = data[2].mass_conc_lmeso[y,x]
+        del data[2]['depth_epi'],data[2]['mass_conc_epi'],data[2]['depth_umeso'],data[2]['mass_conc_umeso'],data[2]['mass_conc_umeso_mig'],data[2]['depth_lmeso'],data[2]['mass_conc_lmeso'],data[2]['mass_conc_lmeso_mig'],data[2]['mass_conc_lmeso_Hmig']
+        return data
+
     filename_gebco = os.path.join(folder_g,filename_g)
     filename1 = os.path.join(folder_c,filename_c1)
     filename2 = os.path.join(folder_c,filename_c2)
@@ -717,9 +757,10 @@ def createData(step_analysis=0,
         j[:,yy,xx] = calc_press_increase(d)#double check
         b4['pressure'] = j
         data.append(b4)
-        for key in data[2]:
-            if key not in ['grid','depth','xgrid','ygrid','time']:
-                data[2][key] = np.stack([data[2][key] for i in range(len(Data.depth))])
+##        for key in data[2]:#expanding to depth
+##            if key not in ['grid','depth','xgrid','ygrid','time']:
+##                data[2][key] = np.stack([data[2][key] for i in range(len(Data.depth))])
+        data = Biomass(data)
         Data['coverages'] = np.stack([item for List in [[i[key] for key in i if key not in ['grid','depth','xgrid','ygrid','time']] for i in data] for item in List])
         del data
         with open("dataaaa.pickle",'wb') as handle:
@@ -761,15 +802,63 @@ def Load_cephalopods_macaronesia(step_analysis=4):
     return d
 
 
+def biomass(filename):
+    """receievs old occurrences data, appends new field of biomass
+requires:
+    filename    name of the file[str].
+                    _*tsv format*_ with headers:
+                    -Longitude,
+                    -Latitude,
+                    -Bathymetry,
+                    -temperature,
+                    -salinity,
+                    -O2,
+                    -pressure,
+                    -benthos_distance,
+                    -epipelagic_depth,
+                    -epipelagic_mass,
+                    -mesopelagic_u_depth,
+                    -mesopelagic_u_static_mass,
+                    -mesopelagic_u_migratory_mass,
+                    -mesopelagic_l_depth,
+                    -mesopelagic_l_static_mass,
+                    -mesopelagic_l_migratory_mass,
+                    -mesopelagic_l_HighlyMigratory_mass
+ensures:
+    new file    'new'+filename
+    In the above mentioned, last column has the biomass at that
+        depth according to the values obtained in copernicus, by:
+            -Occurrences shallower than the epipelagic depth will
+                have values equal to the sum of the biomass found in
+                the epipelagic, plus the migratory upper mesopelagic
+                and the highly migratory lower mesopelagic;
+            -Occurrences shallower than the upper mesopelagic depth
+                but deeper than the epipelagic will have values
+                equal to the sum of the biomass found in the
+                upper mesopelagic and the migratory lower
+                mesopelagic;
+            -Occurrences shallower than the lower mesopelagic depth
+                but deeper than the upper mesopelagic will have
+                values equal to the sum of the biomass found in the
+                lower mesopelagic;
+            -Deeper occurrences will have 0.
+"""
+    with open(filename,'r') as handle:
+        data = [i.split("\t") for i in handle.readlines()]
+
+    #processing here!
+        #...
+    with open('new_{}'.format(filename),'w') as handle:
+        handle.write("{}/n".format())
 if __name__=='__main__':
     print("hello")
     #d = Load_cephalopods_macaronesia()
-    #d = createData(4)
     #obs = read_sql_georeferenced_observations(test_Lat_range='-2,49',test_Lon_range='-45,-5')
-    test,train = train_test_PA()
-    species_name = 'Abraliopsis_atlantica'
+##    test,train = train_test_PA()
+##    species_name = 'Abraliopsis_atlantica'
     #len(test[0][np.where(test[1]==1)])
-
+##    d = createData(3)
+    
 
 
 

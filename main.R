@@ -11,30 +11,32 @@ get_env_data <- function(DEPTH){
   o2 <-raster(paste('new_o2',DEPTH,'.nc',sep=''))
   pr <-raster(paste('new_pr',DEPTH,'.nc',sep=''))
   bd <-raster(paste('new_bd',DEPTH,'.nc',sep=''))
-  ed <-raster(paste('new_ed',DEPTH,'.nc',sep=''))
-  em <-raster(paste('new_em',DEPTH,'.nc',sep=''))
-  mud <-raster(paste('new_mud',DEPTH,'.nc',sep=''))
-  musm <-raster(paste('new_musm',DEPTH,'.nc',sep=''))
-  mumm <-raster(paste('new_mumm',DEPTH,'.nc',sep=''))
-  mld <-raster(paste('new_mld',DEPTH,'.nc',sep=''))
-  mlsm <-raster(paste('new_mlsm',DEPTH,'.nc',sep=''))
-  mlmm <-raster(paste('new_mlmm',DEPTH,'.nc',sep=''))
-  mlhmm <-raster(paste('new_mlhmm',DEPTH,'.nc',sep=''))
+  # ed <-raster(paste('new_ed',DEPTH,'.nc',sep=''))
+  # em <-raster(paste('new_em',DEPTH,'.nc',sep=''))
+  # mud <-raster(paste('new_mud',DEPTH,'.nc',sep=''))
+  # musm <-raster(paste('new_musm',DEPTH,'.nc',sep=''))
+  # mumm <-raster(paste('new_mumm',DEPTH,'.nc',sep=''))
+  # mld <-raster(paste('new_mld',DEPTH,'.nc',sep=''))
+  # mlsm <-raster(paste('new_mlsm',DEPTH,'.nc',sep=''))
+  # mlmm <-raster(paste('new_mlmm',DEPTH,'.nc',sep=''))
+  # mlhmm <-raster(paste('new_mlhmm',DEPTH,'.nc',sep=''))
+  biomass <-raster(paste('new_biomass',DEPTH,'.nc',sep=''))
   
   env_data_to_map <- stack(temp,
                            sal,
                            o2,
                            pr,
                            bd,
-                           ed,
-                           em,
-                           mud,
-                           musm,
-                           mumm,
-                           mld,
-                           mlsm,
-                           mlmm,
-                           mlhmm
+                           # ed,
+                           # em,
+                           # mud,
+                           # musm,
+                           # mumm,
+                           # mld,
+                           # mlsm,
+                           # mlmm,
+                           # mlhmm
+                           biomass
   )
   return(env_data_to_map)
 }
