@@ -16,6 +16,13 @@ from scipy.stats import binom
 
 
 #---------------------------------------------------------------------------
+def lm_(p1,p2,v):
+    """linear regression"""
+    m =float(p2[0]-p1[0])/float(p2[1]-p1[1])
+    b =float(p2[0]-p2[1]*m)
+    return m*v+b
+    
+
 def build_polygon(lower_left_lon, lower_left_lat, size,data):#not under use
     """
 requires:
@@ -507,12 +514,6 @@ def calculate_bioclim_SDM(spec=["Abralia_redfieldi"]):
 
 #----------------------------AquaMaps----------------------------------------------#
 """AquaMaps envelop algorithm"""
-def lm_(p1,p2,v):
-    """linear regression"""
-    m =float(p2[0]-p1[0])/float(p2[1]-p1[1])
-    b =float(p2[0]-p2[1]*m)
-    return m*v+b
-    
 
 class Fit_AquaMaps():
     def __init__(self,training_set):
@@ -543,6 +544,60 @@ ensures: np.array with probabilities for classified within envelope"""
             out[:,i][mask] = lm_((.0,mi),(1.0,p10),out[:,i][mask])
         out = out.prod(1)
         return out
+
+
+def calculate_AquaMaps_SDM(spec=["Abralia_redfieldi"]):
+    # create a bunch for each species
+    data_avail, bunchs, train, test = get_bunches(spec)
+
+    data, xgrid, ygrid, zgrid, land_reference = data_loading_Models()
+
+    Zcoll = []
+    levels = []
+    AUCs = []
+    # Fit, predict, and plot for each species.
+    for i, species in enumerate(bunchs):
+        print("_" * 80)
+        print("Modeling distribution of species '%s'" % species.name)
+        # Fit model
+        print(" - fit AquaMaps ... ", end='')
+        clf = Fit_AquaMaps(species.cov_train)
+        print("done.")
+        print(" - predict species distribution ... ", end='')
+
+        ## Predict species distribution using the training data | applying model
+        Z = np.ones((data.Nz ,data.Ny, data.Nx), dtype=np.float64)
+
+        # We'll predict only for the water points.
+        idx = np.where(land_reference==True)
+        coverages_land = data.coverages[:, idx[0], idx[1], idx[2]].T#T?
+
+        pred = clf.predict_proba(coverages_land)
+
+        Z *= pred.min()#coastline 1
+        Z[idx[0], idx[1], idx[2]] = pred
+
+
+        Z[land_reference==False] = -9999#Land and seabed
+
+        print("done.")
+        # Compute p-value
+        pred_test = clf.predict_proba(species.cov_test)
+        p = np.count_nonzero(pred)/len(pred)
+        k = np.count_nonzero(pred_test)
+        n = len(pred_test)
+        p_V = 1 - binom.cdf(k=k, n=n, p=p)
+        
+        print("\n p-value : %f" % p_V)
+        Zcoll.append(Z)
+        AUCs.append(p_V)
+    if not data_avail:
+        for i,sp in enumerate(spec):
+            pickle.dump(bunchs[i], open('{}__.p'.format(sp),'wb'))
+    return Zcoll,AUCs,xgrid,ygrid,train,test
+
+
+
 
 if __name__=="__main__":
     spec=["Abraliopsis_atlantica","Abralia_redfieldi"]
