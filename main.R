@@ -3,7 +3,7 @@ library(ncdf4)
 library(dplyr)
 library(leaflet)
 library(htmlwidgets)
-setwd("D:/PhD/articles/article SDM/data/")
+
 
 get_env_data <- function(DEPTH){
   temp <-raster(paste('new_temp',DEPTH,'.nc',sep=''))
@@ -46,7 +46,6 @@ leafMap <- function(MOD,name){
   points <- na.omit(points)
   points <- points[points$Species==name,]
   palete <- colorNumeric(c('#0000FF','#FFFFCC','#FF0000'), values(MOD), na.color = 'transparent')
-  #palete <- colorNumeric(c('#0000FF','#FFFFCC','#FF0000'), values(f), na.color = 'transparent')
   m <-  leaflet()%>% #leaflet(HR)
     addProviderTiles(provider = 'Esri.OceanBasemap') %>%
     addScaleBar()%>%
@@ -59,34 +58,7 @@ leafMap <- function(MOD,name){
   return(m)
 }
 
-depths <- c(0.49402499198913574,0.5057600140571594,1.5413750410079956,1.5558550357818604,2.6456689834594727,2.667681932449341,3.8194949626922607,3.8562800884246826,5.078224182128906,5.1403608322143555,6.440614223480225,6.543034076690674,7.92956018447876,8.09251880645752,9.572997093200684,9.822750091552734,11.404999732971191,11.773679733276367,13.467140197753906,13.991040229797363,15.810070037841797,16.525320053100586,18.495559692382812,19.429800033569336,21.598819732666016,22.757619857788086,25.211410522460938,26.558300018310547,29.444730758666992,30.87455940246582,34.43415069580078,35.74020004272461,40.344051361083984,41.18001937866211,47.211891174316406,47.37369155883789,53.85063934326172,55.76428985595703,61.11283874511719,65.80726623535156,69.02168273925781,77.61116027832031,77.85385131835938,86.92942810058594,92.3260726928711,97.04131317138672,108.0302963256836,109.72930145263672,120.0,130.66600036621094,133.0758056640625,147.4062042236328,155.85069274902344,163.1645050048828,180.54989624023438,186.12559509277344,199.7899932861328,221.14120483398438,222.47520446777344,244.89059448242188,266.0403137207031,271.3564147949219,300.88751220703125,318.1274108886719,333.86279296875,370.6885070800781,380.2130126953125,411.7939147949219,453.9377136230469,457.6256103515625,508.639892578125,541.0889282226562,565.2922973632812,628.0260009765625,643.5667724609375,697.2587280273438,763.3331298828125,773.3682861328125,856.6790161132812,902.3392944335938,947.4478759765625,1045.85400390625,1062.43994140625,1151.990966796875,1245.291015625,1265.8609619140625,1387.376953125,1452.2509765625,1516.364013671875,1652.5679931640625,1684.2840576171875,1795.6710205078125,1941.8929443359375,1945.2960205078125,2101.027099609375,2225.077880859375,2262.422119140625,2429.02490234375,2533.3359375,2600.3798828125,2776.0390625,2865.702880859375,2955.570068359375,3138.56494140625,3220.820068359375,3324.64111328125,3513.446044921875,3597.031982421875,3704.656982421875,3897.98193359375,3992.48388671875,4093.158935546875,4289.953125,4405.22412109375,4488.15478515625,4687.5810546875,4833.291015625,4888.06982421875,5089.47900390625,5274.7841796875,5291.68310546875,5494.5751953125,5698.06103515625,5727.9169921875,5902.05810546875)
-
-#var <-read.table("Ancistroteuthis.tsv",sep='\t',header = T)
-#name <- 'Ancistroteuthis lichtensteinii'
-#var<-read.table("Tsagittatus.tsv",sep='\t',header = T)
-#name <- 'Todarodes sagittatus'
-#var<-read.table("Averanyi.tsv",sep='\t',header = T)
-#name <- 'Abralia veranyi'
-var<-read.table("Cscabra.tsv",sep='\t',header = T)
-name<-'Cranchia scabra'
-#var<-read.table("Hbonnellii.tsv",sep='\t',header = T)
-#name <-'Histioteuthis bonnellii'
-#var<-read.table("Hreversa.tsv",sep='\t',header = T)
-#name <-'Histioteuthis reversa'
-var <- var[4:17]
-#var <- var[c(4:6,9:17)]
-#var <- na.omit(var)
-
-#dados <- filter(var,present == 1)
-
-#mal <-mahal(var)
-d <- domain(var)
-bio <- bioclim(var)
-
-
-deeper_sea <-raster('new_bd0.nc')
-deeper_sea[deeper_sea<200] <- NA
-
+into_the_DEEP <- function(depths,d,bio,deeper_sea,test){
 for (i in 0:124){
   cat(i,'\n')
   
@@ -115,38 +87,97 @@ cat('\n')
 }
 MOD <- brick(mod)
 names(MOD) <- depths
+  return(list(MOD=MOD,evals_p=evals_p))
+}
+
+get_depth <- function(value,depths){
+  #test[3] <- get_depth(test[,3],depths)
+  f <-Biobase::matchpt(value,depths)[,1]
+  return(f-1)
+}
+
+####################################################################################################################################
+setwd("D:/PhD/articles/article SDM/data/")
+
+depths <- c(0.49402499198913574,0.5057600140571594,1.5413750410079956,1.5558550357818604,2.6456689834594727,2.667681932449341,3.8194949626922607,3.8562800884246826,5.078224182128906,5.1403608322143555,6.440614223480225,6.543034076690674,7.92956018447876,8.09251880645752,9.572997093200684,9.822750091552734,11.404999732971191,11.773679733276367,13.467140197753906,13.991040229797363,15.810070037841797,16.525320053100586,18.495559692382812,19.429800033569336,21.598819732666016,22.757619857788086,25.211410522460938,26.558300018310547,29.444730758666992,30.87455940246582,34.43415069580078,35.74020004272461,40.344051361083984,41.18001937866211,47.211891174316406,47.37369155883789,53.85063934326172,55.76428985595703,61.11283874511719,65.80726623535156,69.02168273925781,77.61116027832031,77.85385131835938,86.92942810058594,92.3260726928711,97.04131317138672,108.0302963256836,109.72930145263672,120.0,130.66600036621094,133.0758056640625,147.4062042236328,155.85069274902344,163.1645050048828,180.54989624023438,186.12559509277344,199.7899932861328,221.14120483398438,222.47520446777344,244.89059448242188,266.0403137207031,271.3564147949219,300.88751220703125,318.1274108886719,333.86279296875,370.6885070800781,380.2130126953125,411.7939147949219,453.9377136230469,457.6256103515625,508.639892578125,541.0889282226562,565.2922973632812,628.0260009765625,643.5667724609375,697.2587280273438,763.3331298828125,773.3682861328125,856.6790161132812,902.3392944335938,947.4478759765625,1045.85400390625,1062.43994140625,1151.990966796875,1245.291015625,1265.8609619140625,1387.376953125,1452.2509765625,1516.364013671875,1652.5679931640625,1684.2840576171875,1795.6710205078125,1941.8929443359375,1945.2960205078125,2101.027099609375,2225.077880859375,2262.422119140625,2429.02490234375,2533.3359375,2600.3798828125,2776.0390625,2865.702880859375,2955.570068359375,3138.56494140625,3220.820068359375,3324.64111328125,3513.446044921875,3597.031982421875,3704.656982421875,3897.98193359375,3992.48388671875,4093.158935546875,4289.953125,4405.22412109375,4488.15478515625,4687.5810546875,4833.291015625,4888.06982421875,5089.47900390625,5274.7841796875,5291.68310546875,5494.5751953125,5698.06103515625,5727.9169921875,5902.05810546875)
+Weights <- depths
+Weights[2:125] <- Weights[2:125]-Weights[1:124]
+
+#var <-read.table("Ancistroteuthis.tsv",sep='\t',header = T)
+#name <- 'Ancistroteuthis lichtensteinii'
+var<-read.table("Tsagittatus_new.tsv",sep='\t',header = T)
+absences_pseudo<-read.table('background_points_Todarodes_sagittatus_new.tsv',sep='\t',header = T)
+name <- 'Todarodes sagittatus'
+#var<-read.table("Averanyi.tsv",sep='\t',header = T)
+#name <- 'Abralia veranyi'
+#var<-read.table("Cscabra_new.tsv",sep='\t',header = T)
+#name<-'Cranchia scabra'
+#var<-read.table("Hbonnellii.tsv",sep='\t',header = T)
+#name <-'Histioteuthis bonnellii'
+#var<-read.table("Hreversa.tsv",sep='\t',header = T)
+#name <-'Histioteuthis reversa'
+
+
+var <- var[sample(1:nrow(var)), c(4:8,18)]
+absences_pseudo <- absences_pseudo[,c(4:8,18)]
+
+data1 <- sort(sample(nrow(var), nrow(var)*.7))
+data2 <- sort(sample(nrow(absences_pseudo), nrow(absences_pseudo)*.7))
+#test/train
+absences_test <- absences_pseudo[-data2,]
+presences_test <- var[-data1,]
+
+absences_train <- absences_pseudo[data2,]
+var <- var[data1,]#train
+var <- unique(var)
+#var <- na.omit(var)
+
+Presences <- var
+Absences <- absences_train
+Presences$present <- 1
+Absences$present <- 0
+presabs <- rbind(Presences,Absences)
+
+logistic_model <- glm(present ~ temperature + salinity + 
+                        O2 + pressure + benthos_distance +
+                        Biomass,
+                      family = binomial(link = "logit"),
+                      data = presabs)
+
+maxent_model <- maxent(x=presabs[,1:6],
+                       p=presabs$present)
+
+d <- domain(var)
+bio <- bioclim(var)
+
+
+
+
+
+
+presences <- test
+evaluation <- evaluate(presences,absences,d)
+plot(evaluation,'ROC')
+evaluation <- evaluate(presences,absences,bio)
+plot(evaluation,'ROC')
+
+
+
+
+deeper_sea <-raster('new_bd0.nc')
+deeper_sea[deeper_sea<200] <- NA
+
+M <- into_the_DEEP(depths,d,bio,deeper_sea,test)
+MOD <- M$MOD
+evals_p <- M$evals_p
 writeRaster(MOD,filename=paste(name,'.grd',sep = ''), bandorder='BIL', overwrite=TRUE)
-#MOD <- sum(MOD, na.rm=T)
-MOD <- max(MOD, na.rm=T)
+MOD <- weighted.mean(MOD,Weights, na.rm=T)
+#MOD <- max(MOD, na.rm=T)
 MOD <- mask(MOD,deeper_sea)
 #plot(MOD)
-
-
-
-setwd("D:/PhD/articles/article SDM/")
-points <- read.table("D:/PhD/articles/article SDM/data_occurrences.tsv",sep='\t',header = T)
-points <- na.omit(points)
-AV <- points[points$Species=='Abralia veranyi',]
-AL <- points[points$Species=='Ancistroteuthis lichtensteinii',]
-HB <- points[points$Species=='Histioteuthis bonnellii',]
-HR <- points[points$Species=='Histioteuthis reversa',]
-TS <- points[points$Species=='Todarodes sagittatus',]
-TE <- points[points$Species=='Todaropsis eblanae',]
-GF <- points[points$Species=='Gonatus fabricii',]
-#webshot::install_phantomjs()
-
 m <- leafMap(MOD,name)
 
 m
-  #addCircles(lng = ,lat = )%>%
-  #addRasterImage(colors = palete, f, opacity = .6)%>%
-  #addLegend(position = 'topright',pal = palete, values(f), title = 'O2')%>%
-  #addMarkers(lat = 48, lng = 16, label = 'Wien')
-#m
-hist(TE$Bathimetry,main='Todaropsis eblanae')
-#l
-
-
 
 
 
@@ -156,13 +187,9 @@ hist(TE$Bathimetry,main='Todaropsis eblanae')
 var <- na.omit(var)
 logistic_model <- glm(present ~ temperature + salinity + 
                         O2 + pressure + benthos_distance +
-                        epipelagic_depth + epipelagic_mass +
-                        mesopelagic_u_depth + mesopelagic_u_static_mass +
-                        mesopelagic_u_migratory_mass + mesopelagic_l_depth +
-                        mesopelagic_l_static_mass + mesopelagic_l_migratory_mass +
-                        mesopelagic_l_HighlyMigratory_mass,
+                        Biomass,
                       family = binomial(link = "logit"),
-                      data = var)
+                      data = presabs)
 
 presences <- filter(var,present == 1)
 absences <- filter(var,present == 0)
@@ -175,4 +202,27 @@ predictions <- predict(env_data_to_map,
                        type="response")
 plot(predictions)
 ####################################
+
+
+
+
+  #addCircles(lng = ,lat = )%>%
+  #addRasterImage(colors = palete, f, opacity = .6)%>%
+  #addLegend(position = 'topright',pal = palete, values(f), title = 'O2')%>%
+  #addMarkers(lat = 48, lng = 16, label = 'Wien')
+#m
+hist(TE$Bathimetry,main='Todaropsis eblanae')
+#l
+
+setwd("D:/PhD/articles/article SDM/")
+points <- read.table("D:/PhD/articles/article SDM/data_occurrences.tsv",sep='\t',header = T)
+points <- na.omit(points)
+AV <- points[points$Species=='Abralia veranyi',]
+AL <- points[points$Species=='Ancistroteuthis lichtensteinii',]
+HB <- points[points$Species=='Histioteuthis bonnellii',]
+HR <- points[points$Species=='Histioteuthis reversa',]
+TS <- points[points$Species=='Todarodes sagittatus',]
+TE <- points[points$Species=='Todaropsis eblanae',]
+GF <- points[points$Species=='Gonatus fabricii',]
+#webshot::install_phantomjs()
 

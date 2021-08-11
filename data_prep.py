@@ -825,7 +825,7 @@ requires:
                     -mesopelagic_l_migratory_mass,
                     -mesopelagic_l_HighlyMigratory_mass
 ensures:
-    new file    'new'+filename
+    new file    filename+_new+.tsv
     In the above mentioned, last column has the biomass at that
         depth according to the values obtained in copernicus, by:
             -Occurrences shallower than the epipelagic depth will
@@ -844,14 +844,40 @@ ensures:
             -Deeper occurrences will have 0.
 """
     with open(filename,'r') as handle:
-        data = [i.split("\t") for i in handle.readlines()]
+        data = [i[:-1].split("\t") for i in handle.readlines()]
 
     #processing here!
-        #...
-    with open('new_{}'.format(filename),'w') as handle:
-        handle.write("{}/n".format())
+    bm = 0
+    for i,e in enumerate(data):
+        if i==0:
+            data[i].append('Biomass')
+        else:
+            if e[8]=='':
+                data[i].append('')
+                continue
+            if float(e[2])<=float(e[8]):
+                try:
+                    bm = float(e[9]) + float(e[12]) + float(e[16])
+                except:
+                    bm = ''
+            elif float(e[2])<=float(e[10]):
+                try:
+                    bm = float(e[11]) + float(e[15])
+                except:
+                    bm = ''
+            elif float(e[2])<=float(e[13]):
+                try:
+                    bm = e[14]
+                except:
+                    bm = ''
+            else:
+                bm = 0.0
+            data[i].append(str(bm))
+    with open('{}_new.{}'.format(*filename.split('.')),'w') as handle:
+        handle.write("{}\n".format('\n'.join(list(map('\t'.join,data)))))
 if __name__=='__main__':
     print("hello")
+    biomass('data\\background_points_Todarodes_sagittatus.tsv')
     #d = Load_cephalopods_macaronesia()
     #obs = read_sql_georeferenced_observations(test_Lat_range='-2,49',test_Lon_range='-45,-5')
 ##    test,train = train_test_PA()
