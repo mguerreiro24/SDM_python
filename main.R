@@ -11,41 +11,41 @@ get_env_data <- function(DEPTH){
   o2 <-raster(paste('new_o2',DEPTH,'.nc',sep=''))
   pr <-raster(paste('new_pr',DEPTH,'.nc',sep=''))
   bd <-raster(paste('new_bd',DEPTH,'.nc',sep=''))
-  # ed <-raster(paste('new_ed',DEPTH,'.nc',sep=''))
-  # em <-raster(paste('new_em',DEPTH,'.nc',sep=''))
-  # mud <-raster(paste('new_mud',DEPTH,'.nc',sep=''))
-  # musm <-raster(paste('new_musm',DEPTH,'.nc',sep=''))
-  # mumm <-raster(paste('new_mumm',DEPTH,'.nc',sep=''))
-  # mld <-raster(paste('new_mld',DEPTH,'.nc',sep=''))
-  # mlsm <-raster(paste('new_mlsm',DEPTH,'.nc',sep=''))
-  # mlmm <-raster(paste('new_mlmm',DEPTH,'.nc',sep=''))
-  # mlhmm <-raster(paste('new_mlhmm',DEPTH,'.nc',sep=''))
-  biomass <-raster(paste('new_biomass',DEPTH,'.nc',sep=''))
+  ed <-raster(paste('new_ed',DEPTH,'.nc',sep=''))
+  em <-raster(paste('new_em',DEPTH,'.nc',sep=''))
+  #mud <-raster(paste('new_mud',DEPTH,'.nc',sep=''))
+  musm <-raster(paste('new_musm',DEPTH,'.nc',sep=''))
+  mumm <-raster(paste('new_mumm',DEPTH,'.nc',sep=''))
+  #mld <-raster(paste('new_mld',DEPTH,'.nc',sep=''))
+  mlsm <-raster(paste('new_mlsm',DEPTH,'.nc',sep=''))
+  #mlmm <-raster(paste('new_mlmm',DEPTH,'.nc',sep=''))
+  mlhmm <-raster(paste('new_mlhmm',DEPTH,'.nc',sep=''))
+  #biomass <-raster(paste('new_biomass',DEPTH,'.nc',sep=''))
   
   env_data_to_map <- stack(temp,
                            sal,
                            o2,
                            pr,
                            bd,
-                           # ed,
-                           # em,
-                           # mud,
-                           # musm,
-                           # mumm,
-                           # mld,
-                           # mlsm,
-                           # mlmm,
-                           # mlhmm
-                           biomass
+                           ed,
+                           em,
+                           #mud,
+                           musm,
+                           mumm,
+                           #mld,
+                           mlsm,
+                           #mlmm,
+                           mlhmm
+                           # biomass
   )
   return(env_data_to_map)
 }
 
-leafMap <- function(MOD,name){
+leafMap_prob <- function(MOD,name){
   points <- read.table("D:/PhD/articles/article SDM/data_occurrences.tsv",sep='\t',header = T)
   points <- na.omit(points)
   points <- points[points$Species==name,]
-  palete <- colorNumeric(c('#0000FF','#FFFFCC','#FF0000'), values(MOD), na.color = 'transparent')
+  palete <- colorNumeric(c('#0000FF','#FFFFCC','#FF0000'), c(0,1), na.color = 'transparent')#values(MOD)
   m <-  leaflet()%>% #leaflet(HR)
     addProviderTiles(provider = 'Esri.OceanBasemap') %>%
     addScaleBar()%>%
@@ -58,28 +58,48 @@ leafMap <- function(MOD,name){
   return(m)
 }
 
-into_the_DEEP <- function(depths,d,bio,deeper_sea,test){
+leafMap <- function(MOD,name){
+  points <- read.table("D:/PhD/articles/article SDM/data_occurrences.tsv",sep='\t',header = T)
+  points <- na.omit(points)
+  points <- points[points$Species==name,]
+  palete <- colorNumeric(c('#FF0000','#FFFFCC','#0000FF'), values(MOD), na.color = 'transparent')#values(MOD)
+  m <-  leaflet()%>% #leaflet(HR)
+    addProviderTiles(provider = 'Esri.OceanBasemap') %>%
+    addScaleBar()%>%
+    addCircles(points$Longitude,points$Latitude)%>%
+    #addCircleMarkers(lng=~Longitude, lat=~Latitude,
+    #                 clusterOptions = leaflet::markerClusterOptions())
+    addRasterImage(colors = palete, MOD, opacity = .6)%>%
+    addLegend(position = 'topright',pal = palete, values(MOD), title = name)
+  saveWidget(m, file=paste(name,'.html',sep = ''))
+  return(m)
+}
+
+into_the_DEEP <- function(depths,d,bio){#,maxent_model
 for (i in 0:124){
   cat(i,'\n')
   
+deeper_sea <-raster(paste('new_bd',i,'.nc',sep=''))
+deeper_sea[deeper_sea<0] <- NA
 
 env_data_to_map <- get_env_data(i)
 env_data_to_map <- mask(env_data_to_map,deeper_sea)
 cat('envData sorted, ')
 
-predictionsb <- predict(env_data_to_map,
-                       bio,
-                       type="response")
+predictionsb <- predict(env_data_to_map, bio, type="response")
 #plot(predictionsb)
 cat('bioclim done, ')
-predictionsd <-predict(env_data_to_map,
-                      d,
-                      type="response")
+
+predictionsd <-predict(env_data_to_map, d, type="response")
 #plot(predictionsd)
-cat('dismo done.')
+cat('dismo done, ')
+
+predictionsm <-predict(env_data_to_map, maxent_model, type="response")
+#plot(predictionsm)
+cat('MaxEnt done.')
 
 
-mods <- stack(predictionsb,predictionsd)
+mods <- stack(predictionsb,predictionsd,predictionsm)
 mods <- mean(mods, na.rm = T)
 #plot(mods)
 if (i==0){mod <- c(mods)}else {mod <- c(mod,mods)}
@@ -87,13 +107,29 @@ cat('\n')
 }
 MOD <- brick(mod)
 names(MOD) <- depths
-  return(list(MOD=MOD,evals_p=evals_p))
+  return(MOD)
 }
 
 get_depth <- function(value,depths){
   #test[3] <- get_depth(test[,3],depths)
   f <-Biobase::matchpt(value,depths)[,1]
   return(f-1)
+}
+
+set_depth <- function(value,depths){
+  new_value <- depths[value]
+  return(new_value)
+}
+
+check_corr <- function(dat){
+  data <- na.omit(dat)
+  for (i in 1:(dim(data)[2]-1)){
+    for (ii in (i+1):dim(data)[2]){
+      cat(names(data)[i],' vs. ',names(data)[ii],': ',cor(data[i], data[ii], method = "pearson"))
+      cat('\n')
+    }
+  }
+      
 }
 
 ####################################################################################################################################
@@ -103,23 +139,44 @@ depths <- c(0.49402499198913574,0.5057600140571594,1.5413750410079956,1.55585503
 Weights <- depths
 Weights[2:125] <- Weights[2:125]-Weights[1:124]
 
-#var <-read.table("Ancistroteuthis.tsv",sep='\t',header = T)
+deeper_sea <-raster('new_bd0.nc')
+deeper_sea[deeper_sea<200] <- NA
+
+#var <-read.table("Ancistroteuthis_new.tsv",sep='\t',header = T)
 #name <- 'Ancistroteuthis lichtensteinii'
-var<-read.table("Tsagittatus_new.tsv",sep='\t',header = T)
-absences_pseudo<-read.table('background_points_Todarodes_sagittatus_new.tsv',sep='\t',header = T)
-name <- 'Todarodes sagittatus'
-#var<-read.table("Averanyi.tsv",sep='\t',header = T)
+#absences_pseudo<-read.table('background_points_Ancistroteuthis_lichtensteinii_new.tsv',sep='\t',header = T)
+#var<-read.table("Tsagittatus_new.tsv",sep='\t',header = T)
+#absences_pseudo<-read.table('background_points_Todarodes_sagittatus_new.tsv',sep='\t',header = T)
+#name <- 'Todarodes sagittatus'
+#var<-read.table("Averanyi_new.tsv",sep='\t',header = T)
 #name <- 'Abralia veranyi'
+#absences_pseudo<-read.table('background_points_Abralia_veranyi_new.tsv',sep='\t',header = T)
 #var<-read.table("Cscabra_new.tsv",sep='\t',header = T)
 #name<-'Cranchia scabra'
-#var<-read.table("Hbonnellii.tsv",sep='\t',header = T)
+#absences_pseudo<-read.table('background_points_Cranchia_scabra_new.tsv',sep='\t',header = T)
+#var<-read.table("Hbonnellii_new.tsv",sep='\t',header = T)
 #name <-'Histioteuthis bonnellii'
-#var<-read.table("Hreversa.tsv",sep='\t',header = T)
-#name <-'Histioteuthis reversa'
+#absences_pseudo<-read.table('background_points_Histioteuthis_bonnellii_new.tsv',sep='\t',header = T)
+var<-read.table("Hreversa_new.tsv",sep='\t',header = T)
+name <-'Histioteuthis reversa'
+absences_pseudo<-read.table('background_points_Histioteuthis_reversa_new.tsv',sep='\t',header = T)
+
+##ONly biomass
+# var <- var[sample(1:nrow(var)), c(4:8,18)]#shuffle
+# absences_pseudo <- absences_pseudo[,c(4:8,18)]
+
+##all exceptbiomass
+#var <- var[sample(1:nrow(var)), c(4:17)]#shuffle
+#absences_pseudo <- absences_pseudo[,c(4:17)]
+
+##all except biomass and depth of mesopelagics (correlated to epipelagic depth)
+##and mesopelagic_l_migratory_mass(correlated with mesopelagic_u_static_mass)
+var <- var[sample(1:nrow(var)), c(4:10,12,13,15,17)]#shuffle
+absences_pseudo <- absences_pseudo[,c(4:10,12,13,15,17)]
 
 
-var <- var[sample(1:nrow(var)), c(4:8,18)]
-absences_pseudo <- absences_pseudo[,c(4:8,18)]
+check_corr(var)
+
 
 data1 <- sort(sample(nrow(var), nrow(var)*.7))
 data2 <- sort(sample(nrow(absences_pseudo), nrow(absences_pseudo)*.7))
@@ -128,56 +185,75 @@ absences_test <- absences_pseudo[-data2,]
 presences_test <- var[-data1,]
 
 absences_train <- absences_pseudo[data2,]
-var <- var[data1,]#train
-var <- unique(var)
+train <- var[data1,]#train
+#var <- unique(var)
 #var <- na.omit(var)
 
-Presences <- var
+Presences <- train
 Absences <- absences_train
 Presences$present <- 1
 Absences$present <- 0
 presabs <- rbind(Presences,Absences)
 
-logistic_model <- glm(present ~ temperature + salinity + 
-                        O2 + pressure + benthos_distance +
-                        Biomass,
-                      family = binomial(link = "logit"),
-                      data = presabs)
+#logistic_model <- glm(present ~ temperature + salinity + O2 + pressure + benthos_distance + Biomass, family = binomial(link = "logit"), data = presabs)
 
-maxent_model <- maxent(x=presabs[,1:6],
+maxent_model <- maxent(x=presabs[,1:11],
                        p=presabs$present)
 
-d <- domain(var)
-bio <- bioclim(var)
+d <- domain(train)
+bio <- bioclim(train)
 
 
 
-
-
-
-presences <- test
-evaluation <- evaluate(presences,absences,d)
+evaluation <- evaluate(presences_test,absences_test,d)
 plot(evaluation,'ROC')
-evaluation <- evaluate(presences,absences,bio)
+evaluation <- evaluate(presences_test,absences_test,bio)
+plot(evaluation,'ROC')
+evaluation <- evaluate(presences_test,absences_test,maxent_model)
 plot(evaluation,'ROC')
 
 
 
 
-deeper_sea <-raster('new_bd0.nc')
-deeper_sea[deeper_sea<200] <- NA
-
-M <- into_the_DEEP(depths,d,bio,deeper_sea,test)
-MOD <- M$MOD
-evals_p <- M$evals_p
+MOD <- into_the_DEEP(depths,d,bio)#,maxent_model
 writeRaster(MOD,filename=paste(name,'.grd',sep = ''), bandorder='BIL', overwrite=TRUE)
-MOD <- weighted.mean(MOD,Weights, na.rm=T)
-#MOD <- max(MOD, na.rm=T)
-MOD <- mask(MOD,deeper_sea)
-#plot(MOD)
-m <- leafMap(MOD,name)
+#MOD <- weighted.mean(MOD,Weights, na.rm=T)
+MODmax <- max(MOD, na.rm=T)
+MODmax <- mask(MODmax,deeper_sea)
 
-m
+MODsd <- weighted.mean(MOD,Weights, na.rm=T)
+MODsd <- mask(MODsd,deeper_sea)
+
+MM <- which.max(MOD)
+MM <- subs(MM,data.frame(id=1:125, v=depths))
+MM <- mask(MM,deeper_sea)
+
+msd <- leafMap_prob(MODsd,paste(name,' weighted Mean',sep=''))
+msd
+
+mmax <- leafMap_prob(MODmax,paste(name,' Max',sep=''))
+mmax
+
+mm <- leafMap(MM,paste(name,' Depth',sep=''))
+mm
+#################################################################################
+
+
+MOD <- stack(paste(name,'.grd',sep = ''))
+MODmax <- max(MOD, na.rm=T)
+MODmax <- mask(MODmax,deeper_sea)
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

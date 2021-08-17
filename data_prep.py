@@ -877,7 +877,7 @@ ensures:
         handle.write("{}\n".format('\n'.join(list(map('\t'.join,data)))))
 if __name__=='__main__':
     print("hello")
-    biomass('data\\background_points_Todarodes_sagittatus.tsv')
+    biomass('data\\Hreversa.tsv')
     #d = Load_cephalopods_macaronesia()
     #obs = read_sql_georeferenced_observations(test_Lat_range='-2,49',test_Lon_range='-45,-5')
 ##    test,train = train_test_PA()
