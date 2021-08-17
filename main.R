@@ -41,7 +41,7 @@ get_env_data <- function(DEPTH){
   return(env_data_to_map)
 }
 
-leafMap_prob <- function(MOD,name){
+leafMap_prob <- function(MOD,name,add_title){
   points <- read.table("D:/PhD/articles/article SDM/data_occurrences.tsv",sep='\t',header = T)
   points <- na.omit(points)
   points <- points[points$Species==name,]
@@ -53,12 +53,12 @@ leafMap_prob <- function(MOD,name){
     #addCircleMarkers(lng=~Longitude, lat=~Latitude,
     #                 clusterOptions = leaflet::markerClusterOptions())
     addRasterImage(colors = palete, MOD, opacity = .6)%>%
-    addLegend(position = 'topright',pal = palete, values(MOD), title = name)
+    addLegend(position = 'topright',pal = palete, values(MOD), title = paste(name,add_title,sep=' '))
   saveWidget(m, file=paste(name,'.html',sep = ''))
   return(m)
 }
 
-leafMap <- function(MOD,name){
+leafMap <- function(MOD,name,add_title){
   points <- read.table("D:/PhD/articles/article SDM/data_occurrences.tsv",sep='\t',header = T)
   points <- na.omit(points)
   points <- points[points$Species==name,]
@@ -70,7 +70,7 @@ leafMap <- function(MOD,name){
     #addCircleMarkers(lng=~Longitude, lat=~Latitude,
     #                 clusterOptions = leaflet::markerClusterOptions())
     addRasterImage(colors = palete, MOD, opacity = .6)%>%
-    addLegend(position = 'topright',pal = palete, values(MOD), title = name)
+    addLegend(position = 'topright',pal = palete, values(MOD), title = paste(name,add_title,sep=' '))
   saveWidget(m, file=paste(name,'.html',sep = ''))
   return(m)
 }
@@ -217,7 +217,7 @@ plot(evaluation,'ROC')
 
 MOD <- into_the_DEEP(depths,d,bio)#,maxent_model
 writeRaster(MOD,filename=paste(name,'.grd',sep = ''), bandorder='BIL', overwrite=TRUE)
-#MOD <- weighted.mean(MOD,Weights, na.rm=T)
+#MOD <- stack(paste(name,'.grd',sep = ''))#when data saved
 MODmax <- max(MOD, na.rm=T)
 MODmax <- mask(MODmax,deeper_sea)
 
@@ -228,20 +228,16 @@ MM <- which.max(MOD)
 MM <- subs(MM,data.frame(id=1:125, v=depths))
 MM <- mask(MM,deeper_sea)
 
-msd <- leafMap_prob(MODsd,paste(name,' weighted Mean',sep=''))
+msd <- leafMap_prob(MODsd,name,'weighted Mean')
 msd
 
-mmax <- leafMap_prob(MODmax,paste(name,' Max',sep=''))
+mmax <- leafMap_prob(MODmax,name,'Max')
 mmax
 
-mm <- leafMap(MM,paste(name,' Depth',sep=''))
+mm <- leafMap(MM,name,'Depth')
 mm
 #################################################################################
 
-
-MOD <- stack(paste(name,'.grd',sep = ''))
-MODmax <- max(MOD, na.rm=T)
-MODmax <- mask(MODmax,deeper_sea)
 
 
 
