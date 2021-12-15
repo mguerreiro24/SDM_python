@@ -61,7 +61,7 @@ species_locations <- function(locations,species_name){
 plotting <- function(rasteR,species,TSS,algo,points){
   #mods already went through mask
   mods <- rasteR
-  palete = colorNumeric(c("#5E85B8","#EDF0C0","#C13127"), values(mods), na.color = 'transparent')
+  palete = colorNumeric(c("#5E85B8","#EDF0C0","#C13127"), c(0,1), na.color = 'transparent')
   name <- species
   add_title <- algo
   m <-  leaflet()%>%
@@ -192,65 +192,73 @@ main <- function(species_name,oegopsids,env,background_macaronesia_test,backgrou
 
   #pB <- stack()
   #pN <- stack()
-
+  
+  cat('GAM model\n')
   pa <- stack(predictionsa)
   wa <- sapply(tssa, function(x) TSSweight(x))
-  tssa <- weighted.mean(sapply(tssa, function(x) TSS(x)), wa)
-  pa <- weighted.mean(pa, wa)
+  tssa <- weighted.mean(sapply(tssa, function(x) TSS(x)), wa, na.rm=TRUE)
+  pa <- weighted.mean(pa, wa, na.rm=TRUE)
   mods <- pa
   add_title <- 'GAM'
   m <-  plotting(mods,species_name,tssa,add_title,presence_locations)
   saveWidget(m, file=paste(species_name,'_',add_title,'.html', sep=''))
 
+  
+  cat('GLM model\n')
   pml <- stack(predictionsml)
   wml <- sapply(tssml, function(x) TSSweight(x))
-  tssml <- weighted.mean(sapply(tssml, function(x) TSS(x)), wml)
-  pml <- weighted.mean(pml, wml)
+  tssml <- weighted.mean(sapply(tssml, function(x) TSS(x)), wml, na.rm=TRUE)
+  pml <- weighted.mean(pml, wml, na.rm=TRUE)
   mods <- pml
   add_title <- 'GLM'
   m <-  plotting(mods,species_name,tssml,add_title,presence_locations)
   saveWidget(m, file=paste(species_name,'_',add_title,'.html', sep=''))
 
 
+  cat('Mahalanobis model\n')
   pma <- stack(predictionsma)
   wma <- sapply(tssma, function(x) TSSweight(x))
   #tssma <- sapply(tssma, function(x) TSS(x))
-  tssma <- weighted.mean(sapply(tssma, function(x) TSS(x)), wma)
-  pma <- weighted.mean(pma, wma)
+  tssma <- weighted.mean(sapply(tssma, function(x) TSS(x)), wma, na.rm=TRUE)
+  pma <- weighted.mean(pma, wma, na.rm=TRUE)
   pma[pma<0] <- 0
+  #pma[pma==NA] <- 0
   mods <- pma
   add_title <- 'Mahalanobis'
   m <-  plotting(mods,species_name,tssma,add_title,presence_locations)
   saveWidget(m, file=paste(species_name,'_',add_title,'.html', sep=''))
 
 
+  cat('Bioclim model\n')
   pb <- stack(predictionsb)
   wb <- sapply(tssb, function(x) TSSweight(x))
   #tssb <- sapply(tssb, function(x) TSS(x))
-  tssb <- weighted.mean(sapply(tssb, function(x) TSS(x)), wb)
-  pb <- weighted.mean(pb, wb)
+  tssb <- weighted.mean(sapply(tssb, function(x) TSS(x)), wb, na.rm=TRUE)
+  pb <- weighted.mean(pb, wb, na.rm=TRUE)
   mods <- pb
   add_title <- 'Bioclim'
   m <-  plotting(mods,species_name,tssb,add_title,presence_locations)
   saveWidget(m, file=paste(species_name,'_',add_title,'.html', sep=''))
 
 
+  cat('Domain model\n')
   pd <- stack(predictionsd)
   wd <- sapply(tssd, function(x) TSSweight(x))
   #tssd <- sapply(tssd, function(x) TSS(x))
-  tssd <- weighted.mean(sapply(tssd, function(x) TSS(x)), wd)
-  pd <- weighted.mean(pd, wd)
+  tssd <- weighted.mean(sapply(tssd, function(x) TSS(x)), wd, na.rm=TRUE)
+  pd <- weighted.mean(pd, wd, na.rm=TRUE)
   mods <- pd
   add_title <- 'Domain'
   m <-  plotting(mods,species_name,tssd,add_title,presence_locations)
   saveWidget(m, file=paste(species_name,'_',add_title,'.html', sep=''))
 
 
+  cat('MaxEnt model\n')
   pmX <- stack(predictionsmX)
   wmX <- sapply(tssmx, function(x) TSSweight(x))
   #tssmx <- sapply(tssmx, function(x) TSS(x))
-  tssmx <- weighted.mean(sapply(tssmx, function(x) TSS(x)), wmX)
-  pmX <- weighted.mean(pmX, wmX)
+  tssmx <- weighted.mean(sapply(tssmx, function(x) TSS(x)), wmX, na.rm=TRUE)
+  pmX <- weighted.mean(pmX, wmX, na.rm=TRUE)
   mods <- pmX
   add_title <- 'MaxEnt'
   m <-  plotting(mods,species_name,tssmx,add_title,presence_locations)
@@ -265,8 +273,8 @@ main <- function(species_name,oegopsids,env,background_macaronesia_test,backgrou
   #w <- sapply(list(ea, elm, ema, eb, ed, em), function(x) TSSweight(x))
   #Mean <- weighted.mean( models[[c("GAM", "GLM", "mahalanobis", "bioclim", "Domain", "maxent")]], w)
   ws <- weights_tsss(tsss)
-  Mean <- weighted.mean( models[[c("GAM", "GLM", "mahalanobis", "bioclim", "Domain", "maxent")]], ws)
-  tsss <- weighted.mean(tsss,ws)
+  Mean <- weighted.mean( models[[c("GAM", "GLM", "mahalanobis", "bioclim", "Domain", "maxent")]], ws, na.rm=TRUE)
+  tsss <- weighted.mean(tsss,ws, na.rm=TRUE)
   mods <- Mean
   #mods <- mask(mods,mask_depth)
   add_title <- 'Ensemble'
@@ -286,7 +294,7 @@ mask_depth <- mask_depth[[1]]
 #mask_depth <- crop(mask_depth,macaronesia.extent)
 mask_depth[mask_depth>-200] <- NA
 env <- mask(env,mask_depth)
-macaronesia.extent <- extent(-35, -5, 12, 42)#lon,lon,lat,lat
+macaronesia.extent <- extent(-35, -10, 12, 42)#lon,lon,lat,lat
 macaronesia.env <- crop(env,macaronesia.extent)
 
 
